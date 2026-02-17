@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { formatNaira } from "@/data/mock";
 import { mockOrders, sellerProducts } from "@/data/mockExtended";
@@ -22,6 +24,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useLocalCache } from "@/hooks/useLocalCache";
 import { type SellerCatalogue, CATALOGUE_CATEGORY_LABELS } from "@/data/storeTypes";
 import { type CatalogueItem } from "@/components/seller/CatalogueManager";
+import { ImageUploadManager, type UploadedImage } from "@/components/seller/ImageUploadManager";
+import { VideoEmbedField, type VideoEmbed } from "@/components/seller/VideoEmbedField";
+import { useToast } from "@/hooks/use-toast";
 
 const revenueData = [
   { month: "Jul", revenue: 120000 },
@@ -150,12 +155,24 @@ export default function SellerDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selectedCatalogueId, setSelectedCatalogueId] = useState<string>("");
+  const { toast } = useToast();
 
   // Product filter state
   const [productSearch, setProductSearch] = useState("");
   const [productStatusFilter, setProductStatusFilter] = useState<string>("all");
   const [productSortBy, setProductSortBy] = useState<string>("name-asc");
   const [manageSelectedCatalogue, setManageSelectedCatalogue] = useState<string>("");
+
+  // Add product form state
+  const [newProductCatalogue, setNewProductCatalogue] = useState("");
+  const [newProductName, setNewProductName] = useState("");
+  const [newProductCategory, setNewProductCategory] = useState("");
+  const [newProductPrice, setNewProductPrice] = useState("");
+  const [newProductInventory, setNewProductInventory] = useState("");
+  const [newProductDescription, setNewProductDescription] = useState("");
+  const [newProductImages, setNewProductImages] = useState<UploadedImage[]>([]);
+  const [newProductVideo, setNewProductVideo] = useState<VideoEmbed | null>(null);
+  const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
 
   // Load catalogues
   const { data: catalogues } = useLocalCache<SellerCatalogue[]>("riba_seller_catalogues", []);
@@ -236,6 +253,82 @@ export default function SellerDashboard() {
   const clearFilters = () => {
     setProductSearch("");
     setProductStatusFilter("all");
+  };
+
+  const resetAddProductForm = () => {
+    setNewProductCatalogue("");
+    setNewProductName("");
+    setNewProductCategory("");
+    setNewProductPrice("");
+    setNewProductInventory("");
+    setNewProductDescription("");
+    setNewProductImages([]);
+    setNewProductVideo(null);
+  };
+
+  const handleAddProduct = async () => {
+    // Use the selected catalogue or default to the first one
+    const selectedCatalogue = newProductCatalogue || sortedCatalogues[0]?.id;
+    
+    // Validation
+    if (!selectedCatalogue) {
+      toast({ title: "Error", description: "Please select a catalogue", variant: "destructive" });
+      return;
+    }
+    if (!newProductName.trim()) {
+      toast({ title: "Error", description: "Please enter product name", variant: "destructive" });
+      return;
+    }
+    if (!newProductPrice || parseFloat(newProductPrice) <= 0) {
+      toast({ title: "Error", description: "Please enter a valid price", variant: "destructive" });
+      return;
+    }
+    if (newProductImages.length === 0) {
+      toast({ title: "Error", description: "Please upload at least one product image", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmittingProduct(true);
+    
+    try {
+      const mainImage = newProductImages.find((img) => img.isMain);
+      const newProduct: CatalogueItem = {
+        id: `product-${Date.now()}`,
+        name: newProductName,
+        category: newProductCategory,
+        price: parseFloat(newProductPrice),
+        description: newProductDescription,
+        image: mainImage?.dataUrl || newProductImages[0].dataUrl,
+        images: newProductImages.map((img) => img.dataUrl),
+        video: newProductVideo || undefined,
+        status: "draft",
+        createdAt: new Date().toISOString(),
+      };
+
+      // Load existing products for this catalogue
+      const key = `riba_catalogue_${selectedCatalogue}`;
+      const existing = localStorage.getItem(key);
+      const products: CatalogueItem[] = existing ? JSON.parse(existing) : [];
+      products.push(newProduct);
+      localStorage.setItem(key, JSON.stringify(products));
+
+      toast({
+        title: "Success!",
+        description: `${newProductName} has been added to your catalogue.`,
+      });
+
+      resetAddProductForm();
+      setActiveTab("products-manage");
+    } catch (error) {
+      console.error("Error adding product:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add product. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingProduct(false);
+    }
   };
 
   return (
@@ -394,12 +487,15 @@ export default function SellerDashboard() {
                 <CardTitle className="text-base">Add New Product</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4 max-w-lg">
+                <div className="space-y-6 max-w-2xl">
                   {/* Catalogue selector */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Catalogue *</label>
+                    <Label>Catalogue *</Label>
                     {sortedCatalogues.length > 0 ? (
-                      <Select defaultValue={sortedCatalogues[0]?.id}>
+                      <Select
+                        value={newProductCatalogue || sortedCatalogues[0]?.id}
+                        onValueChange={setNewProductCatalogue}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select a catalogue" />
                         </SelectTrigger>
@@ -425,13 +521,17 @@ export default function SellerDashboard() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Product Name *</label>
-                    <Input placeholder="e.g. Samsung Galaxy A54" />
+                    <Label>Product Name *</Label>
+                    <Input
+                      placeholder="e.g. Samsung Galaxy A54"
+                      value={newProductName}
+                      onChange={(e) => setNewProductName(e.target.value)}
+                    />
                   </div>
 
                   {/* Category - auto-fetched from saved catalogue items */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Category</label>
+                    <Label>Category</Label>
                     {(() => {
                       // Collect unique categories from all catalogue items
                       const savedCategories = new Set<string>();
@@ -449,7 +549,7 @@ export default function SellerDashboard() {
                       });
                       const categoryList = Array.from(savedCategories).sort();
                       return categoryList.length > 0 ? (
-                        <Select>
+                        <Select value={newProductCategory} onValueChange={setNewProductCategory}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a category" />
                           </SelectTrigger>
@@ -460,28 +560,98 @@ export default function SellerDashboard() {
                           </SelectContent>
                         </Select>
                       ) : (
-                        <Input placeholder="e.g. Electronics" />
+                        <Input
+                          placeholder="e.g. Electronics"
+                          value={newProductCategory}
+                          onChange={(e) => setNewProductCategory(e.target.value)}
+                        />
                       );
                     })()}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Price (₦) *</label>
-                      <Input type="number" placeholder="0" />
+                      <Label>Price (₦) *</Label>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={newProductPrice}
+                        onChange={(e) => setNewProductPrice(e.target.value)}
+                      />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Inventory</label>
-                      <Input type="number" placeholder="0" />
+                      <Label>Inventory</Label>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={newProductInventory}
+                        onChange={(e) => setNewProductInventory(e.target.value)}
+                      />
                     </div>
                   </div>
+
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Image URL</label>
-                    <Input placeholder="https://..." />
+                    <Label>Description (Optional)</Label>
+                    <Textarea
+                      placeholder="Describe your product features, specifications, etc."
+                      rows={3}
+                      value={newProductDescription}
+                      onChange={(e) => setNewProductDescription(e.target.value)}
+                    />
                   </div>
-                  <Button className="btn-profit" disabled={sortedCatalogues.length === 0}>
-                    <Plus className="h-4 w-4 mr-1" /> Add Product
-                  </Button>
+
+                  {/* Image Upload */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1">
+                      Product Images 
+                      <span className="text-destructive">*</span>
+                      <span className="text-xs text-muted-foreground font-normal">(Required - Up to 5 images)</span>
+                    </Label>
+                    <ImageUploadManager
+                      images={newProductImages}
+                      onChange={setNewProductImages}
+                      maxImages={5}
+                      maxSizeMB={5}
+                    />
+                  </div>
+
+                  {/* Video URL */}
+                  <div className="space-y-2">
+                    <Label>Product Video (Optional)</Label>
+                    <VideoEmbedField value={newProductVideo} onChange={setNewProductVideo} />
+                  </div>
+
+                  <div className="flex gap-3 pt-4 border-t">
+                    <Button
+                      className="btn-profit flex-1"
+                      disabled={sortedCatalogues.length === 0 || isSubmittingProduct}
+                      onClick={handleAddProduct}
+                    >
+                      {isSubmittingProduct ? (
+                        <>
+                          <span className="inline-block animate-spin mr-2">⏳</span> 
+                          Adding Product...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-1" /> Add Product
+                        </>
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={resetAddProductForm}
+                      disabled={
+                        !newProductName && 
+                        !newProductPrice && 
+                        !newProductDescription && 
+                        newProductImages.length === 0 &&
+                        isSubmittingProduct
+                      }
+                    >
+                      Clear Form
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

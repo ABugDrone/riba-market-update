@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +16,31 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showBanner, setShowBanner] = useState(true);
-  const { login } = useAuth();
+  const { login, state } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
+  // Navigate on successful login based on user type
+  useEffect(() => {
+    if (state.isAuthenticated && state.currentUser) {
+      // Check if there's a redirect location (e.g., from review form)
+      const redirectPath = (location.state as any)?.from === "review" 
+        ? `/product/${(location.state as any)?.productId}#reviews`
+        : null;
+
+      if (redirectPath) {
+        navigate(redirectPath);
+      } else if (state.currentUser.userType === "seller") {
+        navigate("/seller/dashboard");
+      } else if (state.currentUser.userType === "both") {
+        // Default to buyer, but user can switch from header
+        navigate("/buyer/dashboard");
+      } else {
+        navigate("/buyer/dashboard");
+      }
+    }
+  }, [state.isAuthenticated, state.currentUser, navigate, location]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +50,6 @@ export default function Login() {
       setLoading(false);
       if (result.success) {
         toast({ title: "Welcome back!", description: "You've signed in successfully." });
-        navigate("/buyer/dashboard");
       } else {
         toast({ title: "Login failed", description: result.error, variant: "destructive" });
       }
@@ -42,21 +63,30 @@ export default function Login() {
         <div className="w-full max-w-md">
           {/* Demo Banner */}
           {showBanner && (
-            <div className="mb-4 flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
-              <div>
-                <span className="font-medium text-primary">Demo mode</span>
-                <span className="text-muted-foreground"> — data resets on page refresh. Try </span>
-                <button
-                  type="button"
-                  className="font-medium text-primary hover:underline"
-                  onClick={() => { setEmail("demo@ribamarket.com"); setPassword("password123"); }}
-                >
-                  demo@ribamarket.com / password123
+            <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 space-y-2 text-sm">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-medium text-primary">🎮 Demo Accounts Available</p>
+                </div>
+                <button onClick={() => setShowBanner(false)} className="text-muted-foreground hover:text-foreground shrink-0">
+                  <X className="h-4 w-4" />
                 </button>
               </div>
-              <button onClick={() => setShowBanner(false)} className="text-muted-foreground hover:text-foreground shrink-0">
-                <X className="h-4 w-4" />
-              </button>
+              <div className="space-y-1.5 text-xs text-muted-foreground">
+                <div>
+                  <span className="font-medium text-primary">Both (Buyer + Seller):</span>
+                  <button type="button" className="ml-1 font-medium text-primary hover:underline" onClick={() => { setEmail("demo@ribamarket.com"); setPassword("password123"); }}>demo@ribamarket.com</button>
+                </div>
+                <div>
+                  <span className="font-medium text-primary">Seller Only:</span>
+                  <button type="button" className="ml-1 font-medium text-primary hover:underline" onClick={() => { setEmail("seller@ribamarket.com"); setPassword("password123"); }}>seller@ribamarket.com</button>
+                </div>
+                <div>
+                  <span className="font-medium text-primary">Buyer Only:</span>
+                  <button type="button" className="ml-1 font-medium text-primary hover:underline" onClick={() => { setEmail("buyer@ribamarket.com"); setPassword("password123"); }}>buyer@ribamarket.com</button>
+                </div>
+                <p className="pt-1 text-[11px] text-muted-foreground">Password: <span className="font-medium">password123</span> (Data resets on refresh)</p>
+              </div>
             </div>
           )}
 

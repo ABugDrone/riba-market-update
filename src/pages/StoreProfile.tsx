@@ -1,10 +1,13 @@
 import { useParams } from "react-router-dom";
+import { useState } from "react";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import { useLocalCache } from "@/hooks/useLocalCache";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 import { type SellerProfile } from "@/components/seller/SellerProfileSettings";
 import { type SellerCatalogue, CATALOGUE_CATEGORY_LABELS, CATALOGUE_CATEGORY_COLORS } from "@/data/storeTypes";
-import { BadgeCheck, Star, Share2, MapPin, Users, ShoppingBag } from "lucide-react";
+import { BadgeCheck, Star, Share2, MapPin, Users, ShoppingBag, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +18,11 @@ import StoreProfileStoreTab from "@/components/store/StoreProfileStoreTab";
 
 export default function StoreProfile() {
   const { storeName } = useParams();
+  const { state: authState, followSeller, unfollowSeller } = useAuth();
+  const { toast } = useToast();
+  const [isFollowing, setIsFollowing] = useState(
+    authState.currentUser?.followedSellers.includes(`seller-${storeName}`) || false
+  );
   const { data: sellerProfile } = useLocalCache<SellerProfile>("riba_seller_profile", {
     businessName: "TechHub NG", description: "Your one-stop shop for quality electronics and gadgets in Nigeria.", email: "", phone: "+234 801 234 5678",
     logoUrl: null, googleMapsLink: "", isPro: false, hideSoldCount: false,
@@ -34,6 +42,39 @@ export default function StoreProfile() {
     phone: sellerProfile.phone,
     logoUrl: sellerProfile.logoUrl,
     googleMapsLink: sellerProfile.googleMapsLink,
+  };
+
+  const handleFollowToggle = () => {
+    if (!authState.isAuthenticated) {
+      toast({ title: "Error", description: "Please log in to follow this seller", variant: "destructive" });
+      return;
+    }
+
+    const sellerId = `seller-${storeName}`;
+    if (isFollowing) {
+      unfollowSeller(sellerId);
+      setIsFollowing(false);
+      toast({ title: "Success", description: `Unfollowed ${store.name}` });
+    } else {
+      followSeller(sellerId);
+      setIsFollowing(true);
+      toast({ title: "Success", description: `Now following ${store.name}` });
+    }
+  };
+
+  const handleShareStore = () => {
+    const urlToShare = window.location.href;
+    if (navigator.share) {
+      navigator.share({
+        title: `Check out ${store.name} on Riba Market`,
+        text: store.description,
+        url: urlToShare,
+      }).catch((err) => console.log("Error sharing:", err));
+    } else {
+      // Fallback: Copy to clipboard
+      navigator.clipboard.writeText(urlToShare);
+      toast({ title: "Success", description: "Store link copied to clipboard! You can now share it." });
+    }
   };
 
   return (
@@ -81,8 +122,28 @@ export default function StoreProfile() {
                 <p className="text-sm text-muted-foreground max-w-xl">{store.description}</p>
               </div>
               <div className="flex gap-2 shrink-0">
-                <Button className="btn-profit">Follow</Button>
-                <Button variant="outline" size="icon"><Share2 className="h-4 w-4" /></Button>
+                <Button 
+                  onClick={handleFollowToggle}
+                  className={isFollowing ? "btn-success" : "btn-profit"}
+                  variant={isFollowing ? "default" : "default"}
+                >
+                  {isFollowing ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Following
+                    </>
+                  ) : (
+                    "Follow"
+                  )}
+                </Button>
+                <Button 
+                  onClick={handleShareStore}
+                  variant="outline" 
+                  size="icon"
+                  title="Share this store"
+                >
+                  <Share2 className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>

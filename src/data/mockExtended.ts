@@ -105,17 +105,27 @@ export const mockAddresses: Address[] = [
 
 export interface Review {
   id: string;
+  productId: string; // Product being reviewed
+  userId: string; // User who left the review
   author: string;
   avatar: string;
   rating: number;
   date: string;
   comment: string;
+  location?: string; // State/Local Govt Area
   helpful: number;
+  sellerReply?: {
+    id: string;
+    sellerId: string;
+    sellerName: string;
+    message: string;
+    date: string;
+  };
 }
 
 export const mockReviews: Review[] = [
-  { id: "r1", author: "Chidi O.", avatar: "https://i.pravatar.cc/40?img=1", rating: 5, date: "2025-01-10", comment: "Excellent product! Fast delivery and great quality. Would definitely recommend to anyone looking for value.", helpful: 12 },
-  { id: "r2", author: "Amina B.", avatar: "https://i.pravatar.cc/40?img=5", rating: 4, date: "2025-01-08", comment: "Good product overall. Packaging could be better but the item itself is wonderful.", helpful: 8 },
-  { id: "r3", author: "Emeka N.", avatar: "https://i.pravatar.cc/40?img=3", rating: 5, date: "2025-01-05", comment: "Amazing value for money. The vendor was very responsive and helpful.", helpful: 15 },
-  { id: "r4", author: "Fatima Y.", avatar: "https://i.pravatar.cc/40?img=9", rating: 3, date: "2025-01-02", comment: "Decent product but took a bit longer than expected to arrive.", helpful: 4 },
+  { id: "r1", productId: "1", userId: "demo-buyer-001", author: "Chidi O.", avatar: "https://i.pravatar.cc/40?img=1", rating: 5, date: "2025-01-10", comment: "Excellent product! Fast delivery and great quality. Would definitely recommend to anyone looking for value.", location: "Lagos", helpful: 12, sellerReply: { id: "sr1", sellerId: "demo-seller-001", sellerName: "TechHub NG", message: "Thank you for the amazing review! We appreciate your business and hope to serve you again soon. Check out our new arrivals next week!", date: "2025-01-11" } },
+  { id: "r2", productId: "1", userId: "demo-001", author: "Amina B.", avatar: "https://i.pravatar.cc/40?img=5", rating: 4, date: "2025-01-08", comment: "Good product overall. Packaging could be better but the item itself is wonderful.", location: "Abuja", helpful: 8 },
+  { id: "r3", productId: "4", userId: "demo-buyer-001", author: "Emeka N.", avatar: "https://i.pravatar.cc/40?img=3", rating: 5, date: "2025-01-05", comment: "Amazing value for money. The vendor was very responsive and helpful.", location: "Lagos", helpful: 15, sellerReply: { id: "sr2", sellerId: "demo-seller-001", sellerName: "TechHub NG", message: "Emeka, we're thrilled to hear this! Don't miss our upcoming 20% off promo on all electronics next Monday.", date: "2025-01-06" } },
+  { id: "r4", productId: "4", userId: "demo-001", author: "Fatima Y.", avatar: "https://i.pravatar.cc/40?img=9", rating: 3, date: "2025-01-02", comment: "Decent product but took a bit longer than expected to arrive.", location: "Port Harcourt", helpful: 4 },
 ];

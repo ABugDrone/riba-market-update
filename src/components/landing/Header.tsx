@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingCart, Heart, User, Search, Menu, LogOut } from "lucide-react";
+import { ShoppingCart, Heart, User, Search, Menu, LogOut, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +22,7 @@ const navLinks = [
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { state, logout } = useAuth();
+  const { state, logout, switchMode } = useAuth();
   const navigate = useNavigate();
   const user = state.currentUser;
 
@@ -85,15 +85,32 @@ export function Header() {
                 <div className="px-2 py-1.5">
                   <p className="text-sm font-medium">{user.name}</p>
                   <p className="text-xs text-muted-foreground">{user.email}</p>
+                  {user.userType === "both" && (
+                    <Badge variant="secondary" className="mt-1.5 capitalize">
+                      {state.currentMode === "seller" ? "🏪 Seller Mode" : "🛍️ Buyer Mode"}
+                    </Badge>
+                  )}
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/buyer/dashboard")}>
+                <DropdownMenuItem onClick={() => { navigate("/buyer/dashboard"); state.currentMode !== "buyer" && switchMode("buyer"); }}>
                   <User className="h-4 w-4 mr-2" /> My Account
                 </DropdownMenuItem>
                 {(user.userType === "seller" || user.userType === "both") && (
-                  <DropdownMenuItem onClick={() => navigate("/seller/dashboard")}>
-                    Seller Dashboard
+                  <DropdownMenuItem onClick={() => { navigate("/seller/dashboard"); state.currentMode !== "seller" && switchMode("seller"); }}>
+                    <Briefcase className="h-4 w-4 mr-2" /> Seller Dashboard
                   </DropdownMenuItem>
+                )}
+                {user.userType === "both" && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <div className="px-2 py-2 text-xs font-medium text-muted-foreground">Switch Mode</div>
+                    <DropdownMenuItem onClick={() => { switchMode("buyer"); navigate("/buyer/dashboard"); }} className={state.currentMode === "buyer" ? "bg-primary/10" : ""}>
+                      <User className="h-3 w-3 mr-2" /> Buyer Mode
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { switchMode("seller"); navigate("/seller/dashboard"); }} className={state.currentMode === "seller" ? "bg-primary/10" : ""}>
+                      <Briefcase className="h-3 w-3 mr-2" /> Seller Mode
+                    </DropdownMenuItem>
+                  </>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => { logout(); navigate("/"); }}>

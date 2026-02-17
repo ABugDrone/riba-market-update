@@ -15,6 +15,8 @@ import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
+import Payment from "./pages/Payment";
+import Receipt from "./pages/Receipt";
 import SellerDashboard from "./pages/seller/SellerDashboard";
 import BuyerDashboard from "./pages/buyer/BuyerDashboard";
 import StoreProfile from "./pages/StoreProfile";
@@ -41,6 +43,8 @@ const App = () => (
               <Route path="/product/:id" element={<ProductDetail />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
+              <Route path="/payment" element={<Payment />} />
+              <Route path="/receipt" element={<Receipt />} />
               <Route path="/seller/dashboard" element={<SellerDashboard />} />
               <Route path="/buyer/dashboard" element={<BuyerDashboard />} />
               <Route path="/buyer/orders" element={<BuyerDashboard />} />

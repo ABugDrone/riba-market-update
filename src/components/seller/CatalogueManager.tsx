@@ -10,6 +10,7 @@ import { formatNaira } from "@/data/mock";
 import { Plus, Trash2, Edit, Package, X, Save, Wifi, WifiOff } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { type VideoEmbed } from "./VideoEmbedField";
 
 export interface CatalogueItem {
   id: string;
@@ -18,6 +19,8 @@ export interface CatalogueItem {
   price: number;
   category: string;
   image: string;
+  images?: string[]; // Array of image data URLs
+  video?: VideoEmbed; // Video embed information
   status: "draft" | "published";
   createdAt: string;
 }
