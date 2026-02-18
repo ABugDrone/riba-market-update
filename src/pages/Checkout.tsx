@@ -25,7 +25,7 @@ export default function Checkout() {
 
   if (orderPlaced) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background pb-16 md:pb-0">
         <Header />
         <main className="container py-20 text-center max-w-lg mx-auto">
           <CheckCircle className="h-20 w-20 text-primary mx-auto mb-6" />
@@ -43,7 +43,7 @@ export default function Checkout() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Header />
       <main className="container py-6 max-w-4xl">
         {/* Step indicator */}

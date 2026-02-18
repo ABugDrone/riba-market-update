@@ -7,7 +7,9 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Star, Send, AlertCircle } from "lucide-react";
+import { AnonymousReviewForm, AnonymousReviewData } from "./AnonymousReviewForm";
 
 export interface ReviewData {
   id: string;
@@ -20,11 +22,12 @@ export interface ReviewData {
   comment: string;
   location?: string;
   helpful: number;
+  isAnonymous?: false;
 }
 
 interface ReviewFormProps {
   productId: string;
-  onReviewSubmit?: (review: ReviewData) => void;
+  onReviewSubmit?: (review: ReviewData | AnonymousReviewData) => void;
 }
 
 export function ReviewForm({ productId, onReviewSubmit }: ReviewFormProps) {
@@ -36,34 +39,47 @@ export function ReviewForm({ productId, onReviewSubmit }: ReviewFormProps) {
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // If not logged in, show login prompt
+  // If not logged in, show options for login or anonymous review
   if (!authState.isAuthenticated) {
     return (
-      <Card className="p-6 border-2 border-primary/30 bg-primary/5">
-        <div className="flex gap-4">
-          <AlertCircle className="h-6 w-6 text-primary flex-shrink-0 mt-1" />
-          <div className="flex-1">
-            <h3 className="font-semibold text-lg mb-2">Share Your Experience</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              You need to be logged in to review this product. Sign in with your account or create a new one to get started.
-            </p>
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => navigate("/login", { state: { from: "review", productId } })}
-                className="btn-profit"
-              >
-                Login or Sign Up
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={() => navigate("/login")}
-              >
-                Cancel
-              </Button>
+      <Tabs defaultValue="anonymous" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="anonymous">Leave Anonymous Review</TabsTrigger>
+          <TabsTrigger value="login">Login to Review</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="anonymous" className="mt-6 max-h-[85vh] md:max-h-auto overflow-y-auto">
+          <AnonymousReviewForm productId={productId} onReviewSubmit={onReviewSubmit} />
+        </TabsContent>
+
+        <TabsContent value="login" className="mt-6">
+          <Card className="p-6 border-2 border-primary/30 bg-primary/5">
+            <div className="flex gap-4">
+              <AlertCircle className="h-6 w-6 text-primary flex-shrink-0 mt-1" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg mb-2">Sign In for Verified Review</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Create an account or sign in to leave a verified review with your profile. This helps other buyers know your review comes from a trusted account.
+                </p>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => navigate("/login", { state: { from: "review", productId } })}
+                    className="btn-profit"
+                  >
+                    Login or Sign Up
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => navigate("/login")}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </Card>
+          </Card>
+        </TabsContent>
+      </Tabs>
     );
   }
 

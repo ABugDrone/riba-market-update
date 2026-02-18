@@ -62,7 +62,7 @@ const demoSellerUser: UserAccount = {
   phone: "+234 800 111 1111",
   userType: "seller",
   businessName: "Demo Seller Store",
-  isPro: false,
+  isPro: true,
   bio: "This is a demo seller account for testing the seller hub.",
   address: "456 Victoria Island Road",
   city: "Lagos",
