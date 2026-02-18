@@ -178,11 +178,18 @@ export function SalesReport({ timeframe = "monthly" }: SalesReportProps) {
           </div>
         </CardHeader>
         <CardContent>
+<<<<<<< HEAD
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   {reportData.columns.map((col) => (
+=======
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {reportData.columns.map((col) => (
+>>>>>>> 4423b1eb7983e464702bc0b9e38a81103f4cec7d
                   <TableHead key={col} className="capitalize">
                     {col === "date"
                       ? "Date"
@@ -217,8 +224,12 @@ export function SalesReport({ timeframe = "monthly" }: SalesReportProps) {
                 </TableRow>
               ))}
             </TableBody>
+<<<<<<< HEAD
             </Table>
           </div>
+=======
+          </Table>
+>>>>>>> 4423b1eb7983e464702bc0b9e38a81103f4cec7d
         </CardContent>
       </Card>
     </div>

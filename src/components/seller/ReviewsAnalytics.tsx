@@ -151,8 +151,12 @@ export function ReviewsAnalytics({ reviewType = "all" }: ReviewsAnalyticsProps) 
   };
 
   return (
+<<<<<<< HEAD
     <div className="max-h-[90vh] md:max-h-auto overflow-y-auto">
       <div className="space-y-6">
+=======
+    <div className="space-y-6">
+>>>>>>> 4423b1eb7983e464702bc0b9e38a81103f4cec7d
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-4">
         <Card className="border-green-200 bg-green-50/50 dark:border-green-900/30 dark:bg-green-950/20">
@@ -295,8 +299,12 @@ export function ReviewsAnalytics({ reviewType = "all" }: ReviewsAnalyticsProps) 
           </div>
         </CardHeader>
         <CardContent>
+<<<<<<< HEAD
           <div className="overflow-x-auto">
             <Table>
+=======
+          <Table>
+>>>>>>> 4423b1eb7983e464702bc0b9e38a81103f4cec7d
             <TableHeader>
               <TableRow>
                 <TableHead>Month</TableHead>
@@ -338,11 +346,17 @@ export function ReviewsAnalytics({ reviewType = "all" }: ReviewsAnalyticsProps) 
                 <TableCell className="text-center">{averageRating} ⭐</TableCell>
               </TableRow>
             </TableBody>
+<<<<<<< HEAD
             </Table>
           </div>
         </CardContent>
       </Card>
       </div>
+=======
+          </Table>
+        </CardContent>
+      </Card>
+>>>>>>> 4423b1eb7983e464702bc0b9e38a81103f4cec7d
     </div>
   );
 }

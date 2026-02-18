@@ -236,8 +236,12 @@ export function CostsAndExpenses({ timeframe = "monthly" }: CostsAndExpensesProp
           <CardTitle className="text-base">Cost Breakdown Details</CardTitle>
         </CardHeader>
         <CardContent>
+<<<<<<< HEAD
           <div className="overflow-x-auto">
             <Table>
+=======
+          <Table>
+>>>>>>> 4423b1eb7983e464702bc0b9e38a81103f4cec7d
             <TableHeader>
               <TableRow>
                 <TableHead>Category</TableHead>
@@ -259,8 +263,12 @@ export function CostsAndExpenses({ timeframe = "monthly" }: CostsAndExpensesProp
                 <TableCell className="text-right">{formatNaira(totalCosts)}</TableCell>
               </TableRow>
             </TableBody>
+<<<<<<< HEAD
             </Table>
           </div>
+=======
+          </Table>
+>>>>>>> 4423b1eb7983e464702bc0b9e38a81103f4cec7d
         </CardContent>
       </Card>
 
@@ -290,11 +298,18 @@ export function CostsAndExpenses({ timeframe = "monthly" }: CostsAndExpensesProp
           </div>
         </CardHeader>
         <CardContent>
+<<<<<<< HEAD
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   {reportData.columns.map((col) => (
+=======
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {reportData.columns.map((col) => (
+>>>>>>> 4423b1eb7983e464702bc0b9e38a81103f4cec7d
                   <TableHead key={col} className="capitalize">
                     {col === "date"
                       ? "Date"
@@ -323,8 +338,12 @@ export function CostsAndExpenses({ timeframe = "monthly" }: CostsAndExpensesProp
                 </TableRow>
               ))}
             </TableBody>
+<<<<<<< HEAD
             </Table>
           </div>
+=======
+          </Table>
+>>>>>>> 4423b1eb7983e464702bc0b9e38a81103f4cec7d
         </CardContent>
       </Card>
     </div>
