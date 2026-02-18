@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ProductCard } from "@/components/landing/ProductCard";
+import { ReceiptPreviewModal, ReceiptPreviewData } from "@/components/ReceiptPreviewModal";
 import { formatNaira } from "@/data/mock";
 import { mockOrders, mockAddresses, allProducts } from "@/data/mockExtended";
 import {
@@ -68,8 +69,45 @@ function SideNav({ activeTab, setActiveTab }: { activeTab: string; setActiveTab:
 export default function BuyerDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<ReceiptPreviewData | null>(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
 
   const wishlistProducts = allProducts.slice(0, 4);
+
+  const handleOpenReceipt = (order: typeof mockOrders[0]) => {
+    // Convert mockOrder to ReceiptPreviewData format
+    const receiptData: ReceiptPreviewData = {
+      orderId: order.id,
+      timestamp: order.date,
+      items: order.items.map(item => ({
+        productId: item.id || `item-${Math.random()}`,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image,
+        storeName: order.storeName,
+      })),
+      address: {
+        label: "Delivery Address",
+        fullAddress: "123 Main Street",
+        city: "Lagos",
+        state: "Lagos",
+        phone: "+234 801 234 5678",
+      },
+      paymentMethod: "cod",
+      subtotal: order.total * 0.85,
+      delivery: order.total * 0.15,
+      total: order.total,
+      buyer: {
+        name: "Buyer Name",
+        email: "buyer@example.com",
+        phone: "+234 801 234 5678",
+        userType: "buyer",
+      },
+    };
+    setSelectedReceipt(receiptData);
+    setShowReceiptModal(true);
+  };
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -170,7 +208,13 @@ export default function BuyerDashboard() {
                     <div className="flex items-center justify-between mt-3 pt-3 border-t">
                       <span className="text-sm font-bold">Total: {formatNaira(order.total)}</span>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm"><Download className="h-3 w-3 mr-1" /> Receipt</Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleOpenReceipt(order)}
+                        >
+                          <Download className="h-3 w-3 mr-1" /> Receipt
+                        </Button>
                         {order.status === "delivered" && <Button size="sm" className="btn-profit"><Star className="h-3 w-3 mr-1" /> Review</Button>}
                       </div>
                     </div>
@@ -255,6 +299,13 @@ export default function BuyerDashboard() {
           )}
         </main>
       </div>
+      
+      {/* Receipt Preview Modal */}
+      <ReceiptPreviewModal 
+        open={showReceiptModal} 
+        onOpenChange={setShowReceiptModal}
+        receiptData={selectedReceipt}
+      />
     </div>
   );
 }

@@ -2,8 +2,9 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import { ProductCard } from "@/components/landing/ProductCard";
-import { ReviewForm } from "@/components/ReviewForm";
-import { SellerReplyForm } from "@/components/SellerReplyForm";
+import { ReviewForm, ReviewData } from "@/components/ReviewForm";
+import { AnonymousReviewData } from "@/components/AnonymousReviewForm";
+import { SellerReplyForm, SellerReply } from "@/components/SellerReplyForm";
 import { allProducts } from "@/data/mockExtended";
 import { mockReviews } from "@/data/mockExtended";
 import { formatNaira } from "@/data/mock";
@@ -32,7 +33,15 @@ export default function ProductDetail() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
   const [catalogueProduct, setCatalogueProduct] = useState<CatalogueItem | null>(null);
-  const [reviews, setReviews] = useState(productReviews);
+
+  // Get product reviews first
+  const productReviews = mockReviews.filter(r => r.productId === product.id);
+  const [reviews, setReviews] = useState<(ReviewData | AnonymousReviewData)[]>(productReviews);
+
+  // Scroll to top on product change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
 
   // Load product data from localStorage if it's a catalogue product
   useEffect(() => {
@@ -45,7 +54,7 @@ export default function ProductDetail() {
           const found = items.find(item => item.id === id);
           if (found) {
             setCatalogueProduct(found);
-            // Auto-play video if it exists
+            // Auto-play video if it exists (FOMO effect)
             if (found.video) {
               setShowVideo(true);
             }
@@ -64,6 +73,20 @@ export default function ProductDetail() {
   const displayDescription = catalogueProduct?.description || 
     `Experience the best of quality with ${displayName} from ${product.storeName}. This product has been carefully selected and verified to ensure you get the best value for your money.`;
   const hasVideo = !!catalogueProduct?.video;
+
+  // Auto-slide images every 10 seconds (FOMO effect)
+  useEffect(() => {
+    // Only auto-slide if there are multiple images and no video is playing
+    if (displayImages.length <= 1 || showVideo) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setSelectedImage((prev) => (prev + 1) % displayImages.length);
+    }, 10000); // 10 seconds
+
+    return () => clearInterval(interval);
+  }, [displayImages.length, showVideo]);
 
   const handleBuyNow = () => {
     // Store product details for direct checkout
@@ -106,13 +129,11 @@ export default function ProductDetail() {
     authState.currentUser?.userType === "buyer" && 
     authState.currentUser?.purchasedProductIds.includes(product.id);
 
-  const productReviews = mockReviews.filter(r => r.productId === product.id);
-
-  const handleReviewSubmit = (newReview: any) => {
+  const handleReviewSubmit = (newReview: ReviewData | AnonymousReviewData) => {
     setReviews([newReview, ...reviews]);
   };
 
-  const handleSellerReply = (reviewId: string, reply: any) => {
+  const handleSellerReply = (reviewId: string, reply: SellerReply) => {
     setReviews(
       reviews.map((r) =>
         r.id === reviewId ? { ...r, sellerReply: reply } : r
@@ -121,7 +142,7 @@ export default function ProductDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Header />
       <main className="container py-6">
         {/* Breadcrumb */}
@@ -139,7 +160,7 @@ export default function ProductDetail() {
             {/* Main Display - Video or Image */}
             <div className="relative aspect-square rounded-2xl overflow-hidden border-2 border-border shadow-lg hover:shadow-xl transition-shadow duration-300 group">
               {hasVideo && catalogueProduct?.video && showVideo ? (
-                // Auto-playing video
+                // Auto-playing video with FOMO indicators
                 <div className="absolute inset-0 w-full h-full bg-black">
                   <iframe
                     src={catalogueProduct.video.embedUrl}
@@ -149,9 +170,14 @@ export default function ProductDetail() {
                     allowFullScreen
                     title="Product demo video"
                   />
+                  {/* Video playing indicator */}
+                  <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 backdrop-blur px-3 py-1.5 rounded-full">
+                    <div className="h-2 w-2 bg-primary rounded-full animate-pulse"></div>
+                    <span className="text-xs text-white font-semibold">LIVE DEMO</span>
+                  </div>
                 </div>
               ) : (
-                // Image display
+                // Image display with auto-sliding
                 <>
                   <img 
                     src={displayImages[selectedImage]} 
@@ -168,6 +194,32 @@ export default function ProductDetail() {
                       <Sparkles className="h-3.5 w-3.5 mr-1" /> NEW ARRIVAL
                     </Badge>
                   )}
+                  
+                  {/* Auto-sliding indicator dots */}
+                  {displayImages.length > 1 && (
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/50 backdrop-blur px-3 py-2 rounded-full">
+                      {displayImages.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setSelectedImage(i)}
+                          className={`h-1.5 rounded-full transition-all duration-300 ${
+                            selectedImage === i 
+                              ? "w-6 bg-white" 
+                              : "w-1.5 bg-white/40 hover:bg-white/60"
+                          }`}
+                          aria-label={`Go to slide ${i + 1}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Image counter - appears on hover */}
+                  {displayImages.length > 1 && (
+                    <div className="absolute top-4 left-4 bg-black/50 backdrop-blur px-3 py-1.5 rounded-full text-xs text-white font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                      {selectedImage + 1} / {displayImages.length}
+                    </div>
+                  )}
+
                   <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button size="icon" variant="secondary" className="rounded-full shadow-lg">
                       <Heart className="h-4 w-4" />
@@ -176,78 +228,139 @@ export default function ProductDetail() {
                       <Share2 className="h-4 w-4" />
                     </Button>
                   </div>
+
+                  {/* Navigation arrows */}
+                  {displayImages.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => setSelectedImage((prev) => (prev - 1 + displayImages.length) % displayImages.length)}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 backdrop-blur text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+                        aria-label="Previous image"
+                      >
+                        <ChevronRight className="h-5 w-5 rotate-180" />
+                      </button>
+                      <button
+                        onClick={() => setSelectedImage((prev) => (prev + 1) % displayImages.length)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 backdrop-blur text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+                        aria-label="Next image"
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </div>
 
             {/* Thumbnail Grid */}
-            <div className="grid grid-cols-4 gap-2">
-              {/* Show thumbnails only when video is not playing, or add image thumbnails */}
-              {!showVideo && displayImages.map((img, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSelectedImage(i)}
-                  className={`aspect-square rounded-lg border-2 overflow-hidden transition-all duration-300 hover:scale-105 ${
-                    selectedImage === i 
-                      ? "border-primary shadow-lg ring-2 ring-primary/20" 
-                      : "border-border hover:border-primary/50"
-                  }`}
-                >
-                  <img src={img} alt="" className="h-full w-full object-cover" />
-                </button>
-              ))}
-              {/* Video thumbnail button */}
-              {hasVideo && catalogueProduct?.video && (
-                <button
-                  onClick={() => setShowVideo(true)}
-                  className={`aspect-square rounded-lg border-2 overflow-hidden transition-all duration-300 hover:scale-105 relative group ${
-                    showVideo
-                      ? "border-primary shadow-lg ring-2 ring-primary/20" 
-                      : "border-border hover:border-primary/50"
-                  }`}
-                >
-                  {catalogueProduct.video.thumbnail ? (
-                    <img src={catalogueProduct.video.thumbnail} alt="Video" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                      <Video className="h-6 w-6 text-primary" />
+            <div className="space-y-2">
+              {displayImages.length > 1 && !showVideo && (
+                <div className="flex items-center justify-between px-2">
+                  <span className="text-xs font-semibold text-muted-foreground">Images ({displayImages.length})</span>
+                  <span className="text-xs text-primary font-semibold">Auto-advance in 10s</span>
+                </div>
+              )}
+              <div className="grid grid-cols-4 gap-2">
+                {/* Show thumbnails only when video is not playing, or add image thumbnails */}
+                {!showVideo && displayImages.map((img, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedImage(i)}
+                    className={`aspect-square rounded-lg border-2 overflow-hidden transition-all duration-300 hover:scale-105 relative group ${
+                      selectedImage === i 
+                        ? "border-primary shadow-lg ring-2 ring-primary/20" 
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <img src={img} alt="" className="h-full w-full object-cover" />
+                    {/* Active indicator */}
+                    {selectedImage === i && (
+                      <div className="absolute inset-0 border-2 border-primary rounded-[6px] pointer-events-none"></div>
+                    )}
+                  </button>
+                ))}
+                {/* Video thumbnail button */}
+                {hasVideo && catalogueProduct?.video && (
+                  <button
+                    onClick={() => setShowVideo(true)}
+                    className={`aspect-square rounded-lg border-2 overflow-hidden transition-all duration-300 hover:scale-105 relative group ${
+                      showVideo
+                        ? "border-primary shadow-lg ring-2 ring-primary/20" 
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    {catalogueProduct.video.thumbnail ? (
+                      <img src={catalogueProduct.video.thumbnail} alt="Video" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                        <Video className="h-6 w-6 text-primary" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                      <Play className="h-4 w-4 text-white fill-white" />
                     </div>
-                  )}
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                    <Play className="h-4 w-4 text-white fill-white" />
-                  </div>
-                </button>
-              )}
-              {/* Back to images button when video is playing */}
-              {showVideo && (
-                <button
-                  onClick={() => setShowVideo(false)}
-                  className="aspect-square rounded-lg border-2 border-border overflow-hidden transition-all duration-300 hover:scale-105 hover:border-primary/50 bg-muted flex items-center justify-center group"
-                >
-                  <div className="flex flex-col items-center justify-center gap-1">
-                    <Package className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                    <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">Images</span>
-                  </div>
-                </button>
-              )}
+                    {/* Video indicator badge */}
+                    <Badge className="absolute top-1 right-1 bg-primary text-primary-foreground text-[9px] px-1.5 py-0.5">
+                      VIDEO
+                    </Badge>
+                  </button>
+                )}
+                {/* Back to images button when video is playing */}
+                {showVideo && (
+                  <button
+                    onClick={() => setShowVideo(false)}
+                    className="aspect-square rounded-lg border-2 border-border overflow-hidden transition-all duration-300 hover:scale-105 hover:border-primary/50 bg-muted flex items-center justify-center group"
+                  >
+                    <div className="flex flex-col items-center justify-center gap-1">
+                      <Package className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">Images</span>
+                    </div>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Video Info Badge - Shows when video exists */}
             {hasVideo && catalogueProduct?.video && (
-              <Card className="overflow-hidden border-2 border-primary/20 shadow-lg hover:shadow-xl transition-all bg-gradient-to-br from-primary/5 to-primary/10">
-                <div className="p-4 flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg shrink-0">
-                    <Video className="h-5 w-5 text-primary" />
+              <div className={`overflow-hidden rounded-xl border-2 shadow-lg transition-all cursor-pointer hover:shadow-xl ${
+                showVideo 
+                  ? "border-primary/50 bg-gradient-to-br from-primary/10 to-primary/5" 
+                  : "border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 hover:border-primary/40"
+              }`}>
+                <div className="p-4 flex items-center gap-3 relative overflow-hidden">
+                  {/* Animated background */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/10 to-primary/0 animate-pulse"></div>
+                  
+                  <div className="p-3 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg shrink-0 relative z-10">
+                    <Video className="h-6 w-6 text-primary animate-pulse" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm">Product Demo Video</h3>
-                    <p className="text-xs text-muted-foreground">Click on video thumbnail to watch</p>
+                  <div className="flex-1 min-w-0 relative z-10">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-bold text-base">Product Demo Video</h3>
+                      <Badge className="bg-primary text-primary-foreground text-[10px] animate-pulse">FOMO</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Watch how it works before you buy</p>
                   </div>
-                  <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 shrink-0">
-                    {catalogueProduct.video.platform}
-                  </Badge>
+                  <button
+                    onClick={() => setShowVideo(true)}
+                    className="p-3 bg-primary text-primary-foreground rounded-lg shrink-0 hover:scale-110 transition-transform relative z-10"
+                  >
+                    <Play className="h-5 w-5 fill-current" />
+                  </button>
                 </div>
-              </Card>
+              </div>
+            )}
+
+            {/* Auto-slide info - Shows when images are auto-sliding */}
+            {displayImages.length > 1 && !showVideo && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-800/50">
+                <div className="flex-1 flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-blue-700 dark:text-blue-300 font-medium">
+                    Images auto-rotate every 10 seconds • {displayImages.length} photos available
+                  </span>
+                </div>
+              </div>
             )}
           </div>
 
@@ -523,15 +636,17 @@ export default function ProductDetail() {
                     <p className="text-muted-foreground">No reviews yet. Be the first to review this product!</p>
                   </Card>
                 ) : (
-                  reviews.map((review) => (
+                  reviews.map((review) => {
+                    const isAnon = "isAnonymous" in review && review.isAnonymous;
+                    return (
                     <Card key={review.id} className="p-5 hover:shadow-lg transition-shadow">
                       {/* Review Header */}
                       <div className="flex items-start gap-4 mb-3">
                         <img src={review.avatar} alt={review.author} className="h-12 w-12 rounded-full border-2 border-primary/20" />
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <p className="font-bold">{review.author}</p>
-                            {review.location && (
+                            <p className="font-bold">{isAnon ? "Anonymous Reviewer" : review.author}</p>
+                            {"location" in review && review.location && (
                               <span className="text-xs text-muted-foreground">from {review.location}</span>
                             )}
                           </div>
@@ -542,7 +657,9 @@ export default function ProductDetail() {
                               ))}
                             </div>
                             <span className="text-xs text-muted-foreground">• {review.date}</span>
-                            <Badge variant="secondary" className="text-[10px]">Verified Purchase</Badge>
+                            <Badge variant={isAnon ? "outline" : "secondary"} className={`text-[10px] ${isAnon ? "border-amber-300 text-amber-700 dark:text-amber-400" : ""}`}>
+                              {isAnon ? "Anonymous Review" : "Verified Purchase"}
+                            </Badge>
                           </div>
                         </div>
                       </div>
@@ -554,7 +671,7 @@ export default function ProductDetail() {
                       </Button>
 
                       {/* Seller Reply - Display */}
-                      {review.sellerReply && (
+                      {"sellerReply" in review && review.sellerReply && (
                         <div className="mt-4 pt-4 border-t border-border space-y-3">
                           <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
                             <div className="flex-1">
@@ -570,14 +687,15 @@ export default function ProductDetail() {
                       )}
 
                       {/* Seller Reply Form - For Sellers Only */}
-                      {!review.sellerReply && (
+                      {!("sellerReply" in review && review.sellerReply) && (
                         <SellerReplyForm
                           reviewId={review.id}
                           onReplySubmit={(reply) => handleSellerReply(review.id, reply)}
                         />
                       )}
                     </Card>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

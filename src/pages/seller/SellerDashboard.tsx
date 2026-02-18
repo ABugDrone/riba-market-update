@@ -14,7 +14,7 @@ import {
   BarChart3, Package, ShoppingCart, Users, DollarSign,
   Plus, Search, Home, Settings, Menu,
   Edit, Trash2, BookOpen, ChevronDown, ChevronRight, LayoutList, FolderTree,
-  ArrowUpDown, X,
+  ArrowUpDown, X, Eye, EyeOff,
 } from "lucide-react";
 import SellerProfileSettings from "@/components/seller/SellerProfileSettings";
 import StoreManager from "@/components/seller/StoreManager";
@@ -27,6 +27,11 @@ import { type CatalogueItem } from "@/components/seller/CatalogueManager";
 import { ImageUploadManager, type UploadedImage } from "@/components/seller/ImageUploadManager";
 import { VideoEmbedField, type VideoEmbed } from "@/components/seller/VideoEmbedField";
 import { useToast } from "@/hooks/use-toast";
+import { AnalyticsDropdown } from "@/components/seller/AnalyticsDropdown";
+import { AnalyticsModal } from "@/components/seller/AnalyticsModal";
+import { InteractiveRevenueChart } from "@/components/seller/InteractiveRevenueChart";
+import { ProAnalyticsLock } from "@/components/seller/ProAnalyticsLock";
+import { useAuth } from "@/contexts/AuthContext";
 
 const revenueData = [
   { month: "Jul", revenue: 120000 },
@@ -152,9 +157,14 @@ function SideNav({ activeTab, setActiveTab }: { activeTab: string; setActiveTab:
 }
 
 export default function SellerDashboard() {
+  const { state } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selectedCatalogueId, setSelectedCatalogueId] = useState<string>("");
+  const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
+  const [analyticsReportType, setAnalyticsReportType] = useState("sales");
+  const [analyticsTimeframe, setAnalyticsTimeframe] = useState("monthly");
+  const [hideStatsCounts, setHideStatsCounts] = useState(false);
   const { toast } = useToast();
 
   // Product filter state
@@ -162,6 +172,11 @@ export default function SellerDashboard() {
   const [productStatusFilter, setProductStatusFilter] = useState<string>("all");
   const [productSortBy, setProductSortBy] = useState<string>("name-asc");
   const [manageSelectedCatalogue, setManageSelectedCatalogue] = useState<string>("");
+
+  // Order filter state
+  const [orderSearch, setOrderSearch] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
+  const [orderPaymentFilter, setOrderPaymentFilter] = useState<string>("all");
 
   // Add product form state
   const [newProductCatalogue, setNewProductCatalogue] = useState("");
@@ -254,6 +269,51 @@ export default function SellerDashboard() {
     setProductSearch("");
     setProductStatusFilter("all");
   };
+
+  // Filter & sort orders
+  const filteredOrders = useMemo(() => {
+    let items = [...mockOrders];
+
+    // Search by order number or date
+    if (orderSearch) {
+      const q = orderSearch.toLowerCase();
+      items = items.filter((order) => 
+        order.orderNumber.toLowerCase().includes(q) || 
+        order.date.includes(q)
+      );
+    }
+
+    // Filter by status
+    if (orderStatusFilter !== "all") {
+      items = items.filter((order) => order.status === orderStatusFilter);
+    }
+
+    // Filter by payment method
+    if (orderPaymentFilter !== "all") {
+      items = items.filter((order) => 
+        order.paymentMethod.toLowerCase() === orderPaymentFilter.toLowerCase()
+      );
+    }
+
+    // Sort by date (newest first)
+    items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return items;
+  }, [orderSearch, orderStatusFilter, orderPaymentFilter]);
+
+  const hasActiveOrderFilters = orderSearch !== "" || orderStatusFilter !== "all" || orderPaymentFilter !== "all";
+
+  const clearOrderFilters = () => {
+    setOrderSearch("");
+    setOrderStatusFilter("all");
+    setOrderPaymentFilter("all");
+  };
+
+  // Get unique payment methods from orders
+  const uniquePaymentMethods = useMemo(() => {
+    const methods = new Set(mockOrders.map((order) => order.paymentMethod));
+    return Array.from(methods).sort();
+  }, []);
 
   const resetAddProductForm = () => {
     setNewProductCatalogue("");
@@ -355,6 +415,28 @@ export default function SellerDashboard() {
             <h1 className="text-lg font-semibold capitalize">{activeTab.replace(/-/g, " › ").replace("products › ", "Products › ")}</h1>
           </div>
           <div className="flex items-center gap-2">
+            {activeTab === "overview" && (
+              <>
+                <AnalyticsDropdown
+                  onSelectReport={(reportType, timeframe) => {
+                    setAnalyticsReportType(reportType);
+                    setAnalyticsTimeframe(timeframe || "monthly");
+                    setAnalyticsModalOpen(true);
+                  }}
+                  isPro={state.currentUser?.isPro || false}
+                />
+                {state.currentUser?.isPro && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setHideStatsCounts(!hideStatsCounts)}
+                    title={hideStatsCounts ? "Show count" : "Hide count"}
+                  >
+                    {hideStatsCounts ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                )}
+              </>
+            )}
             <ThemeToggle />
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold">T</div>
           </div>
@@ -363,7 +445,8 @@ export default function SellerDashboard() {
         <main className="flex-1 p-4 md:p-6 overflow-y-auto">
           {activeTab === "overview" && (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Overview Stats - Visible to all users */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {stats.map((stat) => (
                   <Card key={stat.label}>
                     <CardContent className="p-4">
@@ -371,30 +454,20 @@ export default function SellerDashboard() {
                         <stat.icon className="h-5 w-5 text-primary" />
                         <span className="text-xs text-primary font-medium">{stat.change}</span>
                       </div>
-                      <p className="text-2xl font-bold">{stat.value}</p>
+                      <p className="text-2xl font-bold">
+                        {state.currentUser?.isPro && hideStatsCounts ? "••••" : stat.value}
+                      </p>
                       <p className="text-xs text-muted-foreground">{stat.label}</p>
                     </CardContent>
                   </Card>
                 ))}
               </div>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Revenue Overview</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={revenueData}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis dataKey="month" className="text-xs" />
-                        <YAxis className="text-xs" tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
-                        <Tooltip formatter={(value: number) => formatNaira(value)} />
-                        <Line type="monotone" dataKey="revenue" stroke="hsl(142, 71%, 45%)" strokeWidth={2} dot={{ fill: "hsl(142, 71%, 45%)" }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
+
+              {/* Revenue Chart - Visible to all users */}
+              {state.currentUser?.isPro && <InteractiveRevenueChart />}
+
+              {/* Detailed Reports - PRO only */}
+              {state.currentUser?.isPro ? (
               <div className="grid lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
@@ -439,43 +512,110 @@ export default function SellerDashboard() {
                   </CardContent>
                 </Card>
               </div>
+              ) : (
+                <ProAnalyticsLock />
+              )}
             </div>
           )}
 
           {activeTab === "orders" && (
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader>
                 <CardTitle className="text-base">All Orders</CardTitle>
-                <div className="flex gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search..." className="pl-8 h-9 w-48" />
-                  </div>
-                </div>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Order #</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Payment</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {mockOrders.map((order) => (
-                      <TableRow key={order.id}>
-                        <TableCell className="font-medium">{order.orderNumber}</TableCell>
-                        <TableCell>{order.date}</TableCell>
-                        <TableCell>{formatNaira(order.total)}</TableCell>
-                        <TableCell><Badge variant="secondary" className={`text-xs ${statusColors[order.status]}`}>{order.status}</Badge></TableCell>
-                        <TableCell className="text-muted-foreground">{order.paymentMethod}</TableCell>
+                {/* Filters */}
+                <div className="mb-4 p-4 border rounded-lg bg-muted/30">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="relative flex-1 min-w-[200px] max-w-sm">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search by order # or date..."
+                        className="pl-8 h-9"
+                        value={orderSearch}
+                        onChange={(e) => setOrderSearch(e.target.value)}
+                      />
+                    </div>
+
+                    <Select value={orderStatusFilter} onValueChange={setOrderStatusFilter}>
+                      <SelectTrigger className="w-[140px] h-9">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="processing">Processing</SelectItem>
+                        <SelectItem value="shipped">Shipped</SelectItem>
+                        <SelectItem value="delivered">Delivered</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={orderPaymentFilter} onValueChange={setOrderPaymentFilter}>
+                      <SelectTrigger className="w-[160px] h-9">
+                        <SelectValue placeholder="Payment" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Payment</SelectItem>
+                        {uniquePaymentMethods.map((method) => (
+                          <SelectItem key={method} value={method}>
+                            {method}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {hasActiveOrderFilters && (
+                      <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={clearOrderFilters}>
+                        <X className="h-3.5 w-3.5" /> Clear
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                    <p className="text-xs text-muted-foreground">
+                      {filteredOrders.length} order{filteredOrders.length !== 1 ? "s" : ""}
+                      {hasActiveOrderFilters ? " (filtered)" : ""}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Orders Table */}
+                {filteredOrders.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Order #</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Payment</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredOrders.map((order) => (
+                        <TableRow key={order.id}>
+                          <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                          <TableCell>{order.date}</TableCell>
+                          <TableCell>{formatNaira(order.total)}</TableCell>
+                          <TableCell><Badge variant="secondary" className={`text-xs ${statusColors[order.status]}`}>{order.status}</Badge></TableCell>
+                          <TableCell className="text-muted-foreground">{order.paymentMethod}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="py-12 text-center">
+                    <ShoppingCart className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                    {hasActiveOrderFilters ? (
+                      <>
+                        <p className="text-sm text-muted-foreground">No orders match your filters.</p>
+                        <Button variant="link" size="sm" className="mt-2" onClick={clearOrderFilters}>Clear all filters</Button>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No orders yet.</p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -887,6 +1027,14 @@ export default function SellerDashboard() {
           {activeTab === "settings" && <SellerProfileSettings />}
         </main>
       </div>
+
+      {/* Analytics Modal */}
+      <AnalyticsModal
+        isOpen={analyticsModalOpen}
+        onClose={() => setAnalyticsModalOpen(false)}
+        reportType={analyticsReportType}
+        timeframe={analyticsTimeframe}
+      />
     </div>
   );
 }

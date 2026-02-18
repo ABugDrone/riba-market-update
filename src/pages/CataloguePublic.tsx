@@ -10,7 +10,7 @@ import { type SellerCatalogue, CATALOGUE_CATEGORY_LABELS, CATALOGUE_CATEGORY_COL
 import { type SellerProfile } from "@/components/seller/SellerProfileSettings";
 import { type CatalogueItem } from "@/components/seller/CatalogueManager";
 import { formatNaira } from "@/data/mock";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Package, Search, ShoppingCart, BadgeCheck, Share2,
   ArrowLeft, SlidersHorizontal, Grid3X3, LayoutList,
@@ -30,6 +30,11 @@ export default function CataloguePublic() {
     isPro: false,
     hideSoldCount: false,
   });
+
+  // Scroll to top on catalogue change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [catalogueId]);
 
   const catalogue = catalogues.find((c) => c.id === catalogueId);
 
@@ -130,7 +135,7 @@ export default function CataloguePublic() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Header />
       <main>
         {/* Banner */}

@@ -133,7 +133,7 @@ export default function Products() {
   const filterProps = { selectedCategories, setSelectedCategories, priceRange, setPriceRange, verifiedOnly, setVerifiedOnly, selectedStoreTypes, setSelectedStoreTypes };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Header />
       <main className="container py-6">
         {/* Top bar */}

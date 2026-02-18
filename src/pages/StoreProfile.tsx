@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import { useLocalCache } from "@/hooks/useLocalCache";
@@ -28,6 +28,11 @@ export default function StoreProfile() {
     logoUrl: null, googleMapsLink: "", isPro: false, hideSoldCount: false,
   });
   const { data: catalogues } = useLocalCache<SellerCatalogue[]>("riba_seller_catalogues", []);
+
+  // Scroll to top on store change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [storeName]);
 
   const totalSold = 552;
   const store = {
@@ -78,7 +83,7 @@ export default function StoreProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Header />
       <main>
         {/* Store Header */}
@@ -179,7 +184,7 @@ export default function StoreProfile() {
               <StoreProfileAbout store={store} />
             </TabsContent>
             <TabsContent value="reviews" className="mt-6 max-w-2xl">
-              <StoreProfileReviews rating={store.rating} reviewCount={store.reviewCount} />
+              <StoreProfileReviews storeName={store.name} rating={store.rating} reviewCount={store.reviewCount} />
             </TabsContent>
             <TabsContent value="policies" className="mt-6 max-w-2xl">
               <StoreProfilePolicies />

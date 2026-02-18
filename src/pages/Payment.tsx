@@ -131,7 +131,7 @@ export default function Payment() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Header />
       <main className="container py-6 max-w-5xl">
         <h1 className="text-3xl font-bold mb-8">Checkout</h1>

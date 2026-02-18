@@ -65,7 +65,7 @@ export default function Cart() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Header />
       <main className="container py-6">
         <h1 className="text-2xl font-bold mb-6">Shopping Cart ({items.length} items)</h1>

@@ -1,14 +1,46 @@
+import { useState, useEffect } from "react";
 import { Star } from "lucide-react";
 import { mockReviews } from "@/data/mockExtended";
+import { mockStoreReviews, type StoreReview } from "@/data/storeReviewsData";
+import { AddStoreReview } from "./AddStoreReview";
+import { Badge } from "@/components/ui/badge";
+import type { AnonymousStoreReviewData } from "./AnonymousStoreReviewForm";
+
+type ReviewType = StoreReview | AnonymousStoreReviewData;
 
 interface Props {
+  storeName: string;
   rating: number;
   reviewCount: number;
 }
 
-export default function StoreProfileReviews({ rating, reviewCount }: Props) {
+export default function StoreProfileReviews({ storeName, rating, reviewCount: initialReviewCount }: Props) {
+  const [reviews, setReviews] = useState<ReviewType[]>([]);
+  const [reviewCount, setReviewCount] = useState(initialReviewCount);
+
+  useEffect(() => {
+    // Load reviews from localStorage for this store
+    const savedReviews = localStorage.getItem(`riba_store_reviews_${storeName}`);
+    if (savedReviews) {
+      setReviews(JSON.parse(savedReviews));
+      setReviewCount(JSON.parse(savedReviews).length + initialReviewCount);
+    } else {
+      // Use mock data on first load
+      const mockData = mockStoreReviews.filter((r) => r.storeName === storeName);
+      setReviews(mockData);
+      setReviewCount(mockData.length + initialReviewCount);
+    }
+  }, [storeName, initialReviewCount]);
+
+  const handleReviewAdded = (newReview: ReviewType) => {
+    setReviews((prev) => [newReview, ...prev]);
+    setReviewCount((prev) => prev + 1);
+  };
+
   return (
     <>
+      <AddStoreReview storeName={storeName} onReviewAdded={handleReviewAdded} />
+      
       <div className="mb-6 p-4 rounded-lg bg-muted/30">
         <div className="flex items-center gap-4">
           <div className="text-center">
@@ -37,12 +69,17 @@ export default function StoreProfileReviews({ rating, reviewCount }: Props) {
         </div>
       </div>
       <div className="space-y-4">
-        {mockReviews.map((review) => (
+        {reviews.map((review) => (
           <div key={review.id} className="border rounded-lg p-4">
             <div className="flex items-center gap-3 mb-2">
               <img src={review.avatar} alt={review.author} className="h-8 w-8 rounded-full" />
-              <div>
-                <p className="text-sm font-medium">{review.author}</p>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">{review.author}</p>
+                  {"isAnonymous" in review && review.isAnonymous && (
+                    <Badge variant="outline" className="text-xs">Anonymous</Badge>
+                  )}
+                </div>
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((s) => (
                     <Star key={s} className={`h-3 w-3 ${s <= review.rating ? "fill-primary text-primary" : "text-muted"}`} />
@@ -52,6 +89,9 @@ export default function StoreProfileReviews({ rating, reviewCount }: Props) {
               </div>
             </div>
             <p className="text-sm text-muted-foreground">{review.comment}</p>
+            <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Helpful: {review.helpful}</span>
+            </div>
           </div>
         ))}
       </div>
