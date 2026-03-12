@@ -342,8 +342,6 @@ export function ReviewsAnalytics({ reviewType = "all" }: ReviewsAnalyticsProps) 
           </div>
         </CardContent>
       </Card>
-        </div>
-        </div>
       </div>
     </div>
   );

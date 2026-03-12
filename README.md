@@ -1,443 +1,205 @@
-INITIAL PLANS FOR DEMO
+# Riba Market
 
-{
-  "project": {
-    "name": "Riba Market",
-    "tagline": "Where Profit Meets Marketplace",
-    "description": "Riba (Multi-vendor eCommerce platform supporting fashion restaurants, products, and services",
-    "version": "1.0.0",
-    "brand": {
-      "name": "Riba Market",
-      "meaning": "Riba means 'profit' in Hausa language",
-      "primary_color": "green",
-      "theme_modes": ["light", "dark"]
-    },
-    "tech_stack": {
-      "frontend": "Next.js 14+ (App Router)",
-      "ui_library": "shadcn/ui + Tailwind CSS",
-      "backend": "Next.js API Routes + Supabase",
-      "database": "PostgreSQL (Supabase)",
-      "auth": "Supabase Auth",
-      "payment": "Flutterwave",
-      "storage": "Supabase Storage",
-      "deployment": "Vercel"
-    }
-  },
-  "user_types": {
-    "seller": {
-      "registration": {
-        "email": "required",
-        "profile": {
-          "business_name": "string",
-          "contact_info": "object",
-          "verification_status": "enum: [pending, verified, rejected]"
-        }
-      },
-      "capabilities": {
-        "multiple_stores": true,
-        "store_types": ["restaurant", "product", "service"],
-        "same_profile_multiple_accounts": true,
-        "unlimited_catalogs": true
-      },
-      "catalog_fields": {
-        "required": [
-          "product_image",
-          "product_name",
-          "category",
-          "description (min 100 words)",
-          "store_type"
-        ],
-        "conditional": {
-          "price": "required for restaurant and product, optional for service",
-          "inventory_count": "required for product and restaurant"
-        },
-        "optional": [
-          "video_demo_url",
-          "additional_specifications",
-          "variations (size, color, etc)"
-        ]
-      },
-      "product_lifecycle": {
-        "auto_removal": "3 days after sold confirmation",
-        "inventory_based": "remains if inventory > 0"
-      }
-    },
-    "buyer": {
-      "registration": {
-        "email": "required",
-        "profile": {
-          "full_name": "string",
-          "phone": "string",
-          "addresses": "array of delivery addresses"
-        }
-      },
-      "capabilities": {
-        "browse_by": [
-          "categories",
-          "date_listed",
-          "verified_vendors",
-          "price_range",
-          "location"
-        ],
-        "cart_features": {
-          "add_to_cart": true,
-          "real_time_total": true,
-          "discount_calculation": true,
-          "remove_items": true,
-          "save_for_later": true
-        },
-        "checkout_process": [
-          "delivery_address_selection",
-          "payment_method_selection",
-          "order_confirmation",
-          "pdf_receipt_generation"
-        ]
-      },
-      "payment_options": {
-        "online": {
-          "provider": "Flutterwave",
-          "methods": ["card", "bank_transfer", "USSD", "mobile_money"]
-        },
-        "cash_on_delivery": {
-          "enabled": true,
-          "payment_types": ["cash", "POS/card"]
-        }
-      }
-    }
-  },
-  "core_features": {
-    "inventory_management": {
-      "landing_page": {
-        "display_logic": "all active products from verified sellers",
-        "filters": ["category", "price", "date", "vendor", "location"],
-        "sorting": ["newest", "price_low_to_high", "price_high_to_low", "popular"],
-        "search": "full-text search on products"
-      },
-      "product_statuses": ["active", "sold", "pending_removal", "out_of_stock"]
-    },
-    "customer_management": {
-      "seller_side": {
-        "order_tracking": true,
-        "customer_communications": true,
-        "order_fulfillment": true
-      },
-      "buyer_side": {
-        "order_history": true,
-        "saved_addresses": true,
-        "favorite_vendors": true,
-        "wishlist": true
-      }
-    },
-    "payment_system": {
-      "webhook_integration": "Flutterwave webhook for payment verification",
-      "escrow": "optional: hold payment until delivery confirmation",
-      "refund_management": true,
-      "transaction_history": true
-    },
-    "order_management": {
-      "order_states": [
-        "pending_payment",
-        "payment_confirmed",
-        "processing",
-        "shipped",
-        "delivered",
-        "cancelled",
-        "refunded"
-      ],
-      "notifications": {
-        "email": true,
-        "in_app": true,
-        "sms": "optional"
-      },
-      "pdf_generation": {
-        "order_receipt": true,
-        "invoice": true,
-        "delivery_proof": true
-      }
-    },
-    "analytics_dashboard": {
-      "seller_metrics": [
-        "total_sales",
-        "revenue",
-        "products_sold",
-        "active_products",
-        "pending_orders",
-        "customer_reviews",
-        "traffic_analytics"
-      ],
-      "buyer_metrics": [
-        "total_orders",
-        "total_spent",
-        "saved_items",
-        "recent_activities"
-      ],
-      "admin_metrics": [
-        "total_vendors",
-        "total_buyers",
-        "total_transactions",
-        "platform_revenue",
-        "top_selling_categories"
-      ]
-    }
-  },
-  "database_schema": {
-    "tables": {
-      "profiles": {
-        "description": "User profiles linked to Supabase Auth",
-        "fields": {
-          "id": "uuid primary key",
-          "user_id": "uuid references auth.users",
-          "email": "text",
-          "full_name": "text",
-          "phone": "text",
-          "avatar_url": "text",
-          "user_type": "enum: [seller, buyer, both]",
-          "created_at": "timestamp",
-          "updated_at": "timestamp"
-        }
-      },
-      "seller_stores": {
-        "description": "Multiple stores per seller profile",
-        "fields": {
-          "id": "uuid primary key",
-          "profile_id": "uuid references profiles",
-          "store_name": "text",
-          "store_type": "enum: [restaurant, product, service]",
-          "description": "text",
-          "logo_url": "text",
-          "verification_status": "enum: [pending, verified, rejected]",
-          "is_active": "boolean",
-          "created_at": "timestamp",
-          "updated_at": "timestamp"
-        }
-      },
-      "products": {
-        "description": "Product catalog",
-        "fields": {
-          "id": "uuid primary key",
-          "store_id": "uuid references seller_stores",
-          "name": "text",
-          "description": "text (min 100 chars)",
-          "category": "text",
-          "price": "decimal (nullable for services)",
-          "images": "text[] (array of URLs)",
-          "video_url": "text (nullable)",
-          "inventory_count": "integer (nullable for services)",
-          "specifications": "jsonb",
-          "status": "enum: [active, sold, pending_removal, out_of_stock]",
-          "sold_at": "timestamp (nullable)",
-          "removal_scheduled_at": "timestamp (nullable)",
-          "created_at": "timestamp",
-          "updated_at": "timestamp"
-        }
-      },
-      "carts": {
-        "description": "Shopping cart items",
-        "fields": {
-          "id": "uuid primary key",
-          "buyer_id": "uuid references profiles",
-          "product_id": "uuid references products",
-          "quantity": "integer",
-          "added_at": "timestamp"
-        }
-      },
-      "addresses": {
-        "description": "Delivery addresses",
-        "fields": {
-          "id": "uuid primary key",
-          "profile_id": "uuid references profiles",
-          "label": "text (e.g., home, work)",
-          "full_address": "text",
-          "city": "text",
-          "state": "text",
-          "postal_code": "text",
-          "phone": "text",
-          "is_default": "boolean",
-          "created_at": "timestamp"
-        }
-      },
-      "orders": {
-        "description": "Order management",
-        "fields": {
-          "id": "uuid primary key",
-          "order_number": "text unique",
-          "buyer_id": "uuid references profiles",
-          "delivery_address_id": "uuid references addresses",
-          "subtotal": "decimal",
-          "delivery_fee": "decimal",
-          "discount": "decimal",
-          "total": "decimal",
-          "payment_method": "enum: [online, cash_on_delivery]",
-          "payment_status": "enum: [pending, paid, failed, refunded]",
-          "order_status": "enum: [pending, processing, shipped, delivered, cancelled]",
-          "payment_reference": "text (nullable)",
-          "notes": "text",
-          "created_at": "timestamp",
-          "updated_at": "timestamp"
-        }
-      },
-      "order_items": {
-        "description": "Items in each order",
-        "fields": {
-          "id": "uuid primary key",
-          "order_id": "uuid references orders",
-          "product_id": "uuid references products",
-          "store_id": "uuid references seller_stores",
-          "quantity": "integer",
-          "unit_price": "decimal",
-          "subtotal": "decimal",
-          "created_at": "timestamp"
-        }
-      },
-      "transactions": {
-        "description": "Payment transactions",
-        "fields": {
-          "id": "uuid primary key",
-          "order_id": "uuid references orders",
-          "amount": "decimal",
-          "payment_provider": "text (e.g., flutterwave)",
-          "payment_reference": "text",
-          "status": "enum: [pending, successful, failed]",
-          "metadata": "jsonb",
-          "created_at": "timestamp",
-          "updated_at": "timestamp"
-        }
-      },
-      "reviews": {
-        "description": "Product and seller reviews",
-        "fields": {
-          "id": "uuid primary key",
-          "product_id": "uuid references products (nullable)",
-          "store_id": "uuid references seller_stores (nullable)",
-          "buyer_id": "uuid references profiles",
-          "rating": "integer (1-5)",
-          "comment": "text",
-          "created_at": "timestamp"
-        }
-      }
-    }
-  },
-  "api_structure": {
-    "auth": {
-      "/api/auth/signup": "POST - Register user",
-      "/api/auth/login": "POST - Login user",
-      "/api/auth/logout": "POST - Logout user",
-      "/api/auth/reset-password": "POST - Password reset"
-    },
-    "profiles": {
-      "/api/profile": "GET, PUT - User profile",
-      "/api/profile/addresses": "GET, POST - Manage addresses"
-    },
-    "stores": {
-      "/api/stores": "GET, POST - List/create stores",
-      "/api/stores/[id]": "GET, PUT, DELETE - Manage store",
-      "/api/stores/[id]/products": "GET, POST - Store products"
-    },
-    "products": {
-      "/api/products": "GET - List products with filters",
-      "/api/products/[id]": "GET, PUT, DELETE - Product details",
-      "/api/products/search": "GET - Search products"
-    },
-    "cart": {
-      "/api/cart": "GET, POST - Cart operations",
-      "/api/cart/[itemId]": "DELETE, PUT - Update cart item"
-    },
-    "orders": {
-      "/api/orders": "GET, POST - List/create orders",
-      "/api/orders/[id]": "GET, PUT - Order details/update",
-      "/api/orders/[id]/pdf": "GET - Generate PDF receipt"
-    },
-    "payments": {
-      "/api/payments/initialize": "POST - Initialize payment",
-      "/api/payments/webhook": "POST - Flutterwave webhook",
-      "/api/payments/verify": "POST - Verify payment"
-    },
-    "analytics": {
-      "/api/analytics/seller": "GET - Seller dashboard data",
-      "/api/analytics/buyer": "GET - Buyer dashboard data"
-    }
-  },
-  "ui_recommendations": {
-    "current_style": "Clean, modern with good use of whitespace",
-    "brand_colors": {
-      "primary": {
-        "green": {
-          "50": "#f0fdf4",
-          "100": "#dcfce7",
-          "200": "#bbf7d0",
-          "300": "#86efac",
-          "400": "#4ade80",
-          "500": "#22c55e",
-          "600": "#16a34a",
-          "700": "#15803d",
-          "800": "#166534",
-          "900": "#14532d",
-          "950": "#052e16"
-        }
-      },
-      "secondary": {
-        "emerald": {
-          "500": "#10b981",
-          "600": "#059669"
-        }
-      },
-      "accent": {
-        "amber": {
-          "400": "#fbbf24",
-          "500": "#f59e0b"
-        }
-      }
-    },
-    "theme_modes": {
-      "light": {
-        "background": "#ffffff",
-        "foreground": "#0a0a0a",
-        "card": "#f9fafb",
-        "primary": "green-600",
-        "muted": "#f3f4f6"
-      },
-      "dark": {
-        "background": "#0a0a0a",
-        "foreground": "#fafafa",
-        "card": "#1a1a1a",
-        "primary": "green-500",
-        "muted": "#262626"
-      }
-    },
-    "suggested_improvements": {
-      "ui_library": "shadcn/ui (modern, accessible, customizable with green theme)",
-      "alternatives": [
-        "Aceternity UI (highly modern, animated components)",
-        "Magic UI (sleek, professional)",
-        "Tremor (excellent for dashboards with green accents)"
-      ],
-      "design_system": {
-        "colors": "Green as primary, neutral grays for base, amber for accents/promotions",
-        "typography": "Inter or Geist font family",
-        "spacing": "Consistent 4/8px grid system",
-        "components": "Reusable, accessible, responsive with smooth dark mode transitions"
-      }
-    }
-  },
-  "security_considerations": {
-    "row_level_security": "Enabled on all tables",
-    "authentication": "Supabase Auth with JWT",
-    "authorization": "Role-based access control",
-    "data_validation": "Zod schemas for all inputs",
-    "rate_limiting": "API route protection",
-    "csrf_protection": "Built-in Next.js protection",
-    "file_upload": "Validated file types and sizes"
-  },
-  "deployment_workflow": {
-    "environments": ["development", "staging", "production"],
-    "ci_cd": "GitHub Actions + Vercel",
-    "environment_variables": [
-      "NEXT_PUBLIC_SUPABASE_URL",
-      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-      "SUPABASE_SERVICE_ROLE_KEY",
-      "FLUTTERWAVE_PUBLIC_KEY",
-      "FLUTTERWAVE_SECRET_KEY",
-      "FLUTTERWAVE_WEBHOOK_SECRET"
-    ]
-  }
-}
+**Where Profit Meets Marketplace**
+
+A modern multi-vendor eCommerce platform supporting restaurants, products, and services with a focus on Nigerian markets.
+
+## 🚀 Overview
+
+Riba Market is a comprehensive marketplace platform that connects buyers with verified sellers across multiple categories including food & restaurants, physical products, and professional services. Built with modern web technologies and designed for scalability.
+
+*"Riba" means "profit" in Hausa language, reflecting our commitment to helping vendors grow their businesses.*
+
+## ✨ Features
+
+### For Buyers
+- **Multi-Category Shopping**: Browse restaurants, products, and services in one platform
+- **Smart Filtering**: Filter by category, price, location, verification status, and ratings
+- **Secure Payments**: Multiple payment options including Flutterwave integration and cash-on-delivery
+- **Order Tracking**: Real-time order status updates and delivery tracking
+- **Reviews & Ratings**: Rate and review products and sellers
+- **Wishlist & Favorites**: Save items and follow preferred sellers
+- **Mobile-First Design**: Responsive design with mobile bottom navigation
+
+### For Sellers
+- **Multi-Store Management**: Create and manage multiple stores under one account
+- **Flexible Catalog**: Support for products, restaurant items, and services
+- **Analytics Dashboard**: Track sales, revenue, customer reviews, and performance metrics
+- **Inventory Management**: Automatic product lifecycle management
+- **Order Management**: Process orders, communicate with customers, and track fulfillment
+- **Verification System**: Get verified status to build customer trust
+
+### Platform Features
+- **Dark/Light Theme**: System-aware theme switching
+- **Real-time Updates**: Live cart updates and notifications
+- **PDF Generation**: Automated receipt and invoice generation
+- **Search & Discovery**: Full-text search across all products and services
+- **Trust Indicators**: Seller verification badges and customer reviews
+
+## 🛠 Tech Stack
+
+### Frontend (Current)
+- **Framework**: React 18 + Vite
+- **Language**: TypeScript
+- **UI Library**: shadcn/ui + Radix UI
+- **Styling**: Tailwind CSS
+- **State Management**: React Context + useReducer
+- **Routing**: React Router v6
+- **Data Fetching**: TanStack Query
+- **Forms**: React Hook Form + Zod validation
+- **Charts**: Recharts
+- **Icons**: Lucide React
+
+### Planned Backend Stack
+- **Runtime**: Node.js
+- **Database**: PostgreSQL (Supabase)
+- **Authentication**: Supabase Auth
+- **Storage**: Supabase Storage
+- **Payments**: Flutterwave
+- **Deployment**: Vercel
+
+## 📦 Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd riba-market
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+4. **Build for production**
+   ```bash
+   npm run build
+   ```
+
+## 🧪 Testing
+
+```bash
+# Run tests once
+npm run test
+
+# Run tests in watch mode
+npm test:watch
+
+# Lint code
+npm run lint
+```
+
+## 📱 Demo Accounts
+
+The application includes demo accounts for testing:
+
+- **Demo User (Both Buyer & Seller)**
+  - Email: `demo@ribamarket.com`
+  - Password: `password123`
+
+- **Demo Seller**
+  - Email: `seller@ribamarket.com`
+  - Password: `password123`
+
+- **Demo Buyer**
+  - Email: `buyer@ribamarket.com`
+  - Password: `password123`
+
+## 🎨 Design System
+
+### Brand Colors
+- **Primary**: Green (#22c55e) - representing growth and prosperity
+- **Secondary**: Emerald (#10b981)
+- **Accent**: Amber (#f59e0b) - for promotions and highlights
+
+### Typography
+- **Font Family**: System fonts (Inter/Geist recommended for production)
+- **Spacing**: 4/8px grid system
+- **Components**: Accessible, responsive with smooth theme transitions
+
+## 📁 Project Structure
+
+```
+src/
+├── components/          # Reusable UI components
+│   ├── ui/             # shadcn/ui components
+│   ├── landing/        # Landing page components
+│   ├── seller/         # Seller-specific components
+│   └── store/          # Store profile components
+├── contexts/           # React contexts (Auth, Theme)
+├── data/              # Mock data and type definitions
+├── hooks/             # Custom React hooks
+├── lib/               # Utility functions
+├── pages/             # Route components
+│   ├── buyer/         # Buyer dashboard pages
+│   └── seller/        # Seller dashboard pages
+├── test/              # Test files and setup
+└── utils/             # Helper utilities
+```
+
+## 🔐 Security Features
+
+- **Input Validation**: Zod schemas for all form inputs
+- **Authentication**: Secure session management
+- **Authorization**: Role-based access control
+- **Data Protection**: Sanitized user inputs and secure API calls
+
+## 🚀 Deployment
+
+The application is configured for deployment on Vercel with the following environment variables:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+FLUTTERWAVE_PUBLIC_KEY=your_flutterwave_public_key
+FLUTTERWAVE_SECRET_KEY=your_flutterwave_secret_key
+FLUTTERWAVE_WEBHOOK_SECRET=your_webhook_secret
+```
+
+## 🛣 Roadmap
+
+### Phase 1: Backend Integration
+- [ ] Supabase setup and database schema
+- [ ] Authentication system implementation
+- [ ] API routes development
+- [ ] Payment gateway integration
+
+### Phase 2: Enhanced Features
+- [ ] Real-time notifications
+- [ ] Advanced analytics
+- [ ] Mobile app development
+- [ ] Multi-language support
+
+### Phase 3: Scale & Optimize
+- [ ] Performance optimization
+- [ ] Advanced search with Elasticsearch
+- [ ] Microservices architecture
+- [ ] AI-powered recommendations
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 📞 Support
+
+For support and questions:
+- Create an issue in the repository
+- Contact the development team
+
+---
+
+**Built with ❤️ for the Nigerian marketplace ecosystem**
