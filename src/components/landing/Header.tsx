@@ -1,18 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingCart, Heart, User, Search, Menu, LogOut, Briefcase } from "lucide-react";
+import { ShoppingCart, Heart, Search, Menu, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { UserProfileDropdown } from "@/components/UserProfileDropdown";
 
 const navLinks = [
   { label: "Categories", href: "/products" },
@@ -22,9 +16,8 @@ const navLinks = [
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { state, logout, switchMode } = useAuth();
+  const { state, logout } = useAuth();
   const navigate = useNavigate();
-  const user = state.currentUser;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -68,56 +61,8 @@ export function Header() {
             </Badge>
           </Button>
 
-          {state.isAuthenticated && user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                  {user.avatar ? (
-                    <img src={user.avatar} alt="" className="h-7 w-7 rounded-full object-cover" />
-                  ) : (
-                    <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
-                      {user.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <div className="px-2 py-1.5">
-                  <p className="text-sm font-medium">{user.name}</p>
-                  <p className="text-xs text-muted-foreground">{user.email}</p>
-                  {user.userType === "both" && (
-                    <Badge variant="secondary" className="mt-1.5 capitalize">
-                      {state.currentMode === "seller" ? "🏪 Seller Mode" : "🛍️ Buyer Mode"}
-                    </Badge>
-                  )}
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => { navigate("/buyer/dashboard"); state.currentMode !== "buyer" && switchMode("buyer"); }}>
-                  <User className="h-4 w-4 mr-2" /> My Account
-                </DropdownMenuItem>
-                {(user.userType === "seller" || user.userType === "both") && (
-                  <DropdownMenuItem onClick={() => { navigate("/seller/dashboard"); state.currentMode !== "seller" && switchMode("seller"); }}>
-                    <Briefcase className="h-4 w-4 mr-2" /> Seller Dashboard
-                  </DropdownMenuItem>
-                )}
-                {user.userType === "both" && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <div className="px-2 py-2 text-xs font-medium text-muted-foreground">Switch Mode</div>
-                    <DropdownMenuItem onClick={() => { switchMode("buyer"); navigate("/buyer/dashboard"); }} className={state.currentMode === "buyer" ? "bg-primary/10" : ""}>
-                      <User className="h-3 w-3 mr-2" /> Buyer Mode
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { switchMode("seller"); navigate("/seller/dashboard"); }} className={state.currentMode === "seller" ? "bg-primary/10" : ""}>
-                      <Briefcase className="h-3 w-3 mr-2" /> Seller Mode
-                    </DropdownMenuItem>
-                  </>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => { logout(); navigate("/"); }}>
-                  <LogOut className="h-4 w-4 mr-2" /> Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {state.isAuthenticated ? (
+            <UserProfileDropdown size="sm" />
           ) : (
             <Link to="/login">
               <Button variant="ghost" size="icon">
@@ -125,6 +70,7 @@ export function Header() {
               </Button>
             </Link>
           )}
+
           <ThemeToggle />
 
           {/* Mobile menu */}

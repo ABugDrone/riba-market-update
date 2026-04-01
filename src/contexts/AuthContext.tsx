@@ -1,12 +1,23 @@
-import { createContext, useContext, useReducer, useCallback, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  type ReactNode,
+} from "react";
+import { supabase } from "@/lib/supabase";
+import type { Session, User } from "@supabase/supabase-js";
+import type { Profile, ProfileUpdate, UserType } from "@/lib/supabase.types";
 
+// ─── Public shape ─────────────────────────────────────────────
 export interface UserAccount {
-  id: string;
+  id: string;           // profiles.id (PK)
+  authId: string;       // auth.users.id = profiles.user_id
   email: string;
-  password: string;
   name: string;
   phone: string;
-  userType: "buyer" | "seller" | "both";
+  userType: UserType;
   businessName?: string;
   avatar?: string;
   bio?: string;
@@ -15,233 +26,313 @@ export interface UserAccount {
   state?: string;
   isPro: boolean;
   createdAt: string;
-  followedSellers: string[]; // Array of seller IDs/emails followed
-  purchasedProductIds: string[]; // Array of product IDs purchased
+  followedSellers: string[];
+  purchasedProductIds: string[];
 }
 
 interface AuthState {
-  users: UserAccount[];
   currentUser: UserAccount | null;
   isAuthenticated: boolean;
-  currentMode: "buyer" | "seller" | null; // Current mode the user is viewing (for "both" account types)
-}
-
-type AuthAction =
-  | { type: "REGISTER"; payload: UserAccount }
-  | { type: "LOGIN"; payload: UserAccount; mode?: "buyer" | "seller" }
-  | { type: "LOGOUT" }
-  | { type: "UPDATE_PROFILE"; payload: Partial<UserAccount> }
-  | { type: "SWITCH_MODE"; payload: "buyer" | "seller" }
-  | { type: "FOLLOW_SELLER"; payload: string }
-  | { type: "UNFOLLOW_SELLER"; payload: string }
-  | { type: "ADD_PURCHASED_PRODUCT"; payload: string };
-
-const demoUser: UserAccount = {
-  id: "demo-001",
-  email: "demo@ribamarket.com",
-  password: "password123",
-  name: "Demo User",
-  phone: "+234 800 000 0000",
-  userType: "both",
-  businessName: "Demo Store",
-  isPro: false,
-  bio: "This is a demo account for testing Riba Market.",
-  address: "123 Lekki Street",
-  city: "Lagos",
-  state: "Lagos",
-  createdAt: new Date().toISOString(),
-  followedSellers: ["demo-seller-001", "seller@ribamarket.com"],
-  purchasedProductIds: ["1", "4", "7"],
-};
-
-const demoSellerUser: UserAccount = {
-  id: "demo-seller-001",
-  email: "seller@ribamarket.com",
-  password: "password123",
-  name: "Demo Seller",
-  phone: "+234 800 111 1111",
-  userType: "seller",
-  businessName: "Demo Seller Store",
-  isPro: true,
-  bio: "This is a demo seller account for testing the seller hub.",
-  address: "456 Victoria Island Road",
-  city: "Lagos",
-  state: "Lagos",
-  createdAt: new Date().toISOString(),
-  followedSellers: [],
-  purchasedProductIds: [],
-};
-
-const demoBuyerUser: UserAccount = {
-  id: "demo-buyer-001",
-  email: "buyer@ribamarket.com",
-  password: "password123",
-  name: "Demo Buyer",
-  phone: "+234 800 222 2222",
-  userType: "buyer",
-  isPro: false,
-  bio: "This is a demo buyer account for testing the buyer dashboard.",
-  address: "789 Ajah Road",
-  city: "Lagos",
-  state: "Lagos",
-  createdAt: new Date().toISOString(),
-  followedSellers: ["demo-seller-001"],
-  purchasedProductIds: ["2", "5", "8", "10"],
-};
-
-const initialState: AuthState = {
-  users: [demoUser, demoSellerUser, demoBuyerUser],
-  currentUser: null,
-  isAuthenticated: false,
-  currentMode: null,
-};
-
-function authReducer(state: AuthState, action: AuthAction): AuthState {
-  switch (action.type) {
-    case "REGISTER":
-      return {
-        ...state,
-        users: [...state.users, action.payload],
-        currentUser: action.payload,
-        isAuthenticated: true,
-        currentMode: action.payload.userType === "both" ? "buyer" : action.payload.userType,
-      };
-    case "LOGIN": {
-      const mode = action.mode || (action.payload.userType === "both" ? "buyer" : action.payload.userType);
-      return { ...state, currentUser: action.payload, isAuthenticated: true, currentMode: mode };
-    }
-    case "LOGOUT":
-      return { ...state, currentUser: null, isAuthenticated: false, currentMode: null };
-    case "SWITCH_MODE":
-      if (state.currentUser?.userType === "both") {
-        return { ...state, currentMode: action.payload };
-      }
-      return state;
-    case "UPDATE_PROFILE":
-      const updated = { ...state.currentUser!, ...action.payload };
-      return {
-        ...state,
-        currentUser: updated,
-        users: state.users.map((u) => (u.id === updated.id ? updated : u)),
-      };
-    case "FOLLOW_SELLER": {
-      if (!state.currentUser) return state;
-      const currentUser = { ...state.currentUser };
-      if (!currentUser.followedSellers.includes(action.payload)) {
-        currentUser.followedSellers.push(action.payload);
-      }
-      return {
-        ...state,
-        currentUser,
-        users: state.users.map((u) => (u.id === currentUser.id ? currentUser : u)),
-      };
-    }
-    case "UNFOLLOW_SELLER": {
-      if (!state.currentUser) return state;
-      const currentUser = { ...state.currentUser };
-      currentUser.followedSellers = currentUser.followedSellers.filter((id) => id !== action.payload);
-      return {
-        ...state,
-        currentUser,
-        users: state.users.map((u) => (u.id === currentUser.id ? currentUser : u)),
-      };
-    }
-    case "ADD_PURCHASED_PRODUCT": {
-      if (!state.currentUser) return state;
-      const currentUser = { ...state.currentUser };
-      if (!currentUser.purchasedProductIds.includes(action.payload)) {
-        currentUser.purchasedProductIds.push(action.payload);
-      }
-      return {
-        ...state,
-        currentUser,
-        users: state.users.map((u) => (u.id === currentUser.id ? currentUser : u)),
-      };
-    }
-    default:
-      return state;
-  }
+  isLoading: boolean;
+  currentMode: "buyer" | "seller" | null;
 }
 
 interface AuthContextType {
   state: AuthState;
-  login: (email: string, password: string, mode?: "buyer" | "seller") => { success: boolean; error?: string };
-  register: (user: Omit<UserAccount, "id" | "isPro" | "createdAt">) => { success: boolean; error?: string };
-  logout: () => void;
-  updateProfile: (data: Partial<UserAccount>) => void;
+  login: (email: string, password: string, mode?: "buyer" | "seller") => Promise<{ success: boolean; error?: string; userType?: UserType }>;
+  register: (userData: Omit<UserAccount, "id" | "authId" | "isPro" | "createdAt"> & { password: string }) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  updateProfile: (data: Partial<UserAccount>) => Promise<void>;
   switchMode: (mode: "buyer" | "seller") => void;
-  followSeller: (sellerId: string) => void;
-  unfollowSeller: (sellerId: string) => void;
-  addPurchasedProduct: (productId: string) => void;
+  followSeller: (sellerId: string) => Promise<void>;
+  unfollowSeller: (sellerId: string) => Promise<void>;
+  addPurchasedProduct: (productId: string) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
+// ─── Helpers ──────────────────────────────────────────────────
+function profileToAccount(profile: Profile, authId: string): UserAccount {
+  // All sellers get PRO features by default
+  const isSeller = profile.user_type === "seller" || profile.user_type === "both";
+  return {
+    id: profile.id,
+    authId,
+    email: profile.email,
+    name: profile.full_name ?? "",
+    phone: profile.phone ?? "",
+    userType: profile.user_type,
+    businessName: profile.business_name ?? undefined,
+    avatar: profile.avatar_url ?? undefined,
+    bio: profile.bio ?? undefined,
+    address: profile.address ?? undefined,
+    city: profile.city ?? undefined,
+    state: profile.state ?? undefined,
+    isPro: profile.is_pro ?? isSeller,
+    createdAt: profile.created_at,
+    followedSellers: profile.followed_sellers ?? [],
+    purchasedProductIds: profile.purchased_product_ids ?? [],
+  };
+}
+
+// Fetch profile by auth user id (user_id column)
+async function fetchProfile(authUserId: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("user_id", authUserId)
+    .single();
+  if (error) { console.error("fetchProfile:", error.message); return null; }
+  return data as Profile;
+}
+
+// ─── Context ──────────────────────────────────────────────────
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(authReducer, initialState);
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentMode, setCurrentMode] = useState<"buyer" | "seller" | null>(null);
 
-  const login = useCallback(
-    (email: string, password: string, mode?: "buyer" | "seller") => {
-      const user = state.users.find(
-        (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-      );
-      if (!user) return { success: false, error: "Invalid email or password" };
-      dispatch({ type: "LOGIN", payload: user, mode });
-      return { success: true };
-    },
-    [state.users]
-  );
+  // Bootstrap session
+  useEffect(() => {
+    let mounted = true;
 
-  const register = useCallback(
-    (userData: Omit<UserAccount, "id" | "isPro" | "createdAt">) => {
-      const exists = state.users.some(
-        (u) => u.email.toLowerCase() === userData.email.toLowerCase()
-      );
-      if (exists) return { success: false, error: "An account with this email already exists" };
-      // Auto-assign a business name for sellers if not provided
-      const businessName =
-        (userData.userType === "seller" || userData.userType === "both")
-          ? (userData.businessName || `${userData.name}'s Business`)
-          : userData.businessName;
-      const newUser: UserAccount = {
-        ...userData,
-        businessName,
-        id: `user-${Date.now()}`,
-        isPro: false,
-        createdAt: new Date().toISOString(),
-        followedSellers: [],
-        purchasedProductIds: [],
-      };
-      dispatch({ type: "REGISTER", payload: newUser });
-      return { success: true };
-    },
-    [state.users]
-  );
+    // Hard timeout — never block the UI for more than 3 seconds
+    const timeout = setTimeout(() => {
+      if (mounted) setIsLoading(false);
+    }, 3000);
 
-  const logout = useCallback(() => dispatch({ type: "LOGOUT" }), []);
-  const updateProfile = useCallback(
-    (data: Partial<UserAccount>) => dispatch({ type: "UPDATE_PROFILE", payload: data }),
-    []
-  );
+    const init = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user && mounted) await loadUser(session.user);
+      } catch (e) {
+        console.error("Auth init error:", e);
+      } finally {
+        if (mounted) {
+          clearTimeout(timeout);
+          setIsLoading(false);
+        }
+      }
+    };
 
+    init();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (!mounted) return;
+        if (session?.user) {
+          await loadUser(session.user);
+        } else {
+          setCurrentUser(null);
+          setCurrentMode(null);
+        }
+        setIsLoading(false);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const loadUser = async (authUser: User) => {
+    try {
+      // Race the profile fetch against a 2s timeout
+      const profilePromise = fetchProfile(authUser.id);
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000));
+      const profile = await Promise.race([profilePromise, timeoutPromise]);
+
+      if (profile) {
+        const account = profileToAccount(profile, authUser.id);
+        setCurrentUser(account);
+        setCurrentMode(account.userType === "both" ? "buyer" : account.userType);
+      } else {
+        // Fallback to auth metadata while profile loads in background
+        const meta = authUser.user_metadata ?? {};
+        const fallback: UserAccount = {
+          id: "",
+          authId: authUser.id,
+          email: authUser.email ?? "",
+          name: meta.full_name ?? authUser.email ?? "",
+          phone: "",
+          userType: (meta.user_type as UserType) ?? "buyer",
+          isPro: false,
+          createdAt: authUser.created_at,
+          followedSellers: [],
+          purchasedProductIds: [],
+        };
+        setCurrentUser(fallback);
+        // Sellers default to seller mode, buyers to buyer mode
+        const fallbackType = fallback.userType;
+        setCurrentMode(fallbackType === "both" ? "seller" : fallbackType);
+
+        // Try fetching profile in background and update when ready
+        fetchProfile(authUser.id).then((p) => {
+          if (p) {
+            setCurrentUser(profileToAccount(p, authUser.id));
+          }
+        });
+      }
+    } catch (e) {
+      console.error("loadUser error:", e);
+    }
+  };
+
+  // ── Login ─────────────────────────────────────────────────
+  const login = useCallback(async (email: string, password: string, mode?: "buyer" | "seller") => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { success: false, error: error.message };
+
+    if (data.user) {
+      const profile = await fetchProfile(data.user.id);
+      let account: UserAccount;
+      if (profile) {
+        account = profileToAccount(profile, data.user.id);
+      } else {
+        const meta = data.user.user_metadata ?? {};
+        account = {
+          id: "",
+          authId: data.user.id,
+          email: data.user.email ?? "",
+          name: meta.full_name ?? data.user.email ?? "",
+          phone: "",
+          userType: (meta.user_type as UserType) ?? "buyer",
+          isPro: false,
+          createdAt: data.user.created_at,
+          followedSellers: [],
+          purchasedProductIds: [],
+        };
+      }
+      const resolvedMode = mode ?? (account.userType === "both" ? "seller" : account.userType);
+      setCurrentUser(account);
+      setCurrentMode(resolvedMode);
+      return { success: true, userType: account.userType };
+    }
+    return { success: true };
+  }, []);
+
+  // ── Register ──────────────────────────────────────────────
+  // The existing DB trigger (handle_new_user) auto-creates the profile row on signup.
+  // We just need to pass metadata so the trigger can populate it.
+  const register = useCallback(async (
+    userData: Omit<UserAccount, "id" | "authId" | "isPro" | "createdAt"> & { password: string }
+  ) => {
+    const { data, error } = await supabase.auth.signUp({
+      email: userData.email,
+      password: userData.password,
+      options: {
+        data: {
+          full_name: userData.name,
+          user_type: userData.userType,
+          avatar_url: userData.avatar ?? null,
+        },
+      },
+    });
+
+    if (error) return { success: false, error: error.message };
+    if (!data.user) return { success: false, error: "Signup failed" };
+
+    // The trigger creates the profile row automatically.
+    // Set is_pro = true for all sellers by default
+    const isSeller = userData.userType === "seller" || userData.userType === "both";
+    const updates: any = {
+      updated_at: new Date().toISOString(),
+    };
+    if (userData.phone) updates.phone = userData.phone;
+    if (userData.businessName) updates.business_name = userData.businessName;
+    if (isSeller) updates.is_pro = true;
+
+    if (Object.keys(updates).length > 1) {
+      await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("user_id", data.user.id);
+    }
+
+    return { success: true };
+  }, []);
+
+  // ── Logout ────────────────────────────────────────────────
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    setCurrentMode(null);
+  }, []);
+
+  // ── Update profile ────────────────────────────────────────
+  const updateProfile = useCallback(async (data: Partial<UserAccount>) => {
+    if (!currentUser?.authId) return;
+
+    const updates: ProfileUpdate = { updated_at: new Date().toISOString() };
+    if (data.name !== undefined) updates.full_name = data.name;
+    if (data.phone !== undefined) updates.phone = data.phone;
+    if (data.avatar !== undefined) updates.avatar_url = data.avatar;
+    if (data.bio !== undefined) updates.bio = data.bio;
+    if (data.address !== undefined) updates.address = data.address;
+    if (data.city !== undefined) updates.city = data.city;
+    if (data.state !== undefined) updates.state = data.state;
+    if (data.userType !== undefined) updates.user_type = data.userType;
+    if (data.businessName !== undefined) updates.business_name = data.businessName;
+    if (data.followedSellers !== undefined) updates.followed_sellers = data.followedSellers;
+    if (data.purchasedProductIds !== undefined) updates.purchased_product_ids = data.purchasedProductIds;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("user_id", currentUser.authId);
+
+    if (error) { console.error("updateProfile:", error.message); return; }
+    setCurrentUser((prev) => prev ? { ...prev, ...data } : prev);
+  }, [currentUser]);
+
+  // ── Switch mode ───────────────────────────────────────────
   const switchMode = useCallback((mode: "buyer" | "seller") => {
-    dispatch({ type: "SWITCH_MODE", payload: mode });
-  }, []);
+    if (currentUser?.userType === "both") setCurrentMode(mode);
+  }, [currentUser]);
 
-  const followSeller = useCallback((sellerId: string) => {
-    dispatch({ type: "FOLLOW_SELLER", payload: sellerId });
-  }, []);
+  // ── Follow / Unfollow ─────────────────────────────────────
+  const followSeller = useCallback(async (sellerId: string) => {
+    if (!currentUser) return;
+    const updated = currentUser.followedSellers.includes(sellerId)
+      ? currentUser.followedSellers
+      : [...currentUser.followedSellers, sellerId];
+    await updateProfile({ followedSellers: updated });
+  }, [currentUser, updateProfile]);
 
-  const unfollowSeller = useCallback((sellerId: string) => {
-    dispatch({ type: "UNFOLLOW_SELLER", payload: sellerId });
-  }, []);
+  const unfollowSeller = useCallback(async (sellerId: string) => {
+    if (!currentUser) return;
+    const updated = currentUser.followedSellers.filter((id) => id !== sellerId);
+    await updateProfile({ followedSellers: updated });
+  }, [currentUser, updateProfile]);
 
-  const addPurchasedProduct = useCallback((productId: string) => {
-    dispatch({ type: "ADD_PURCHASED_PRODUCT", payload: productId });
-  }, []);
+  // ── Add purchased product ─────────────────────────────────
+  const addPurchasedProduct = useCallback(async (productId: string) => {
+    if (!currentUser) return;
+    const updated = currentUser.purchasedProductIds.includes(productId)
+      ? currentUser.purchasedProductIds
+      : [...currentUser.purchasedProductIds, productId];
+    await updateProfile({ purchasedProductIds: updated });
+  }, [currentUser, updateProfile]);
+
+  // ── Refresh profile from DB ───────────────────────────────
+  const refreshProfile = useCallback(async () => {
+    if (!currentUser?.authId) return;
+    const profile = await fetchProfile(currentUser.authId);
+    if (profile) setCurrentUser(profileToAccount(profile, currentUser.authId));
+  }, [currentUser?.authId]);
+
+  const state: AuthState = {
+    currentUser,
+    isAuthenticated: !!currentUser,
+    isLoading,
+    currentMode,
+  };
 
   return (
-    <AuthContext.Provider value={{ state, login, register, logout, updateProfile, switchMode, followSeller, unfollowSeller, addPurchasedProduct }}>
+    <AuthContext.Provider value={{ state, login, register, logout, updateProfile, switchMode, followSeller, unfollowSeller, addPurchasedProduct, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

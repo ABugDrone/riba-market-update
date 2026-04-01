@@ -54,6 +54,10 @@ export function ProAnalyticsLock({
         </div>
 
         <Button 
+          onClick={() => {
+            const msg = encodeURIComponent("Hello, I would like to request activation of my Riba Market seller PRO account. Please assist me with the activation process.");
+            window.open(`https://wa.me/2349083654678?text=${msg}`, "_blank");
+          }}
           className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 mt-4 gap-2"
         >
           <Zap className="h-4 w-4" />

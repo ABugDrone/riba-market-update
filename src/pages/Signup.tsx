@@ -41,26 +41,27 @@ export default function Signup() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      const result = register({
-        email,
-        password,
-        name,
-        phone,
-        userType,
-        businessName: userType !== "buyer" ? businessName : undefined,
-      });
-      setLoading(false);
-      if (result.success) {
-        toast({ title: "Account created!", description: "Let's set up your profile." });
-        navigate("/profile-setup");
-      } else {
-        toast({ title: "Registration failed", description: result.error, variant: "destructive" });
-      }
-    }, 500);
+    const result = await register({
+      email,
+      password,
+      name,
+      phone,
+      userType,
+      businessName: userType !== "buyer" ? businessName : undefined,
+      followedSellers: [],
+      purchasedProductIds: [],
+      isPro: false,
+    });
+    setLoading(false);
+    if (result.success) {
+      toast({ title: "Account created!", description: "Let's set up your profile." });
+      navigate("/profile-setup", { state: { userType } });
+    } else {
+      toast({ title: "Registration failed", description: result.error, variant: "destructive" });
+    }
   };
 
   return (

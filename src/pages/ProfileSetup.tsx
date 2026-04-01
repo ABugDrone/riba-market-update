@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,14 +8,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Upload, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useRef } from "react";
 
 export default function ProfileSetup() {
   const { state, updateProfile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const user = state.currentUser;
+
+  // Use userType from navigation state (passed from Signup) as the source of truth
+  // since the profile row may not be fully created yet
+  const registeredUserType = (location.state as any)?.userType ?? user?.userType ?? "buyer";
 
   const [form, setForm] = useState({
     name: user?.name || "",
@@ -37,10 +41,13 @@ export default function ProfileSetup() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
-    updateProfile(form);
+  const dest = registeredUserType === "seller" || registeredUserType === "both"
+    ? "/seller/dashboard"
+    : "/buyer/dashboard";
+
+  const handleSave = async () => {
+    await updateProfile(form);
     toast({ title: "Profile saved!", description: "Your profile has been updated." });
-    const dest = user.userType === "seller" || user.userType === "both" ? "/seller/dashboard" : "/buyer/dashboard";
     navigate(dest);
   };
 
@@ -115,10 +122,7 @@ export default function ProfileSetup() {
               <Button className="flex-1 btn-profit" onClick={handleSave}>
                 Save & Continue
               </Button>
-              <Button variant="outline" onClick={() => {
-                const dest = user.userType === "seller" || user.userType === "both" ? "/seller/dashboard" : "/buyer/dashboard";
-                navigate(dest);
-              }}>
+              <Button variant="outline" onClick={() => navigate(dest)}>
                 Skip
               </Button>
             </div>

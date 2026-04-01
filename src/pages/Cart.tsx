@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
@@ -6,50 +5,50 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Tag } from "lucide-react";
-import { allProducts } from "@/data/mockExtended";
 import { formatNaira } from "@/data/mock";
-
-interface CartItemData {
-  productId: string;
-  quantity: number;
-}
-
-const initialCart: CartItemData[] = [
-  { productId: "1", quantity: 2 },
-  { productId: "4", quantity: 1 },
-  { productId: "7", quantity: 1 },
-];
+import { useAuth } from "@/contexts/AuthContext";
+import { useCartItems, useUpdateCartQuantity, useRemoveFromCart } from "@/hooks/useCart";
+import { useState } from "react";
 
 export default function Cart() {
-  const [cartItems, setCartItems] = useState(initialCart);
+  const { state } = useAuth();
+  const user = state.currentUser;
+  const { data: cartItems = [], isLoading } = useCartItems(user?.id);
+  const updateQty = useUpdateCartQuantity();
+  const removeItem = useRemoveFromCart();
   const [discountCode, setDiscountCode] = useState("");
   const [discountApplied, setDiscountApplied] = useState(false);
 
-  const items = cartItems.map((ci) => ({
-    ...ci,
-    product: allProducts.find((p) => p.id === ci.productId)!,
-  })).filter((i) => i.product);
-
-  const updateQty = (id: string, delta: number) => {
-    setCartItems((prev) => prev.map((i) => i.productId === id ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i));
-  };
-  const remove = (id: string) => setCartItems((prev) => prev.filter((i) => i.productId !== id));
-
-  const subtotal = items.reduce((s, i) => s + i.product.price * i.quantity, 0);
+  const subtotal = cartItems.reduce((s, i) => s + (i.product?.price ?? 0) * i.quantity, 0);
   const discount = discountApplied ? Math.round(subtotal * 0.1) : 0;
   const delivery = 2500;
   const total = subtotal - discount + delivery;
 
   // Group by store
-  const grouped = items.reduce((acc, item) => {
-    const store = item.product.storeName;
+  const grouped = cartItems.reduce((acc, item) => {
+    const store = item.product?.store?.store_name ?? "Unknown Store";
     if (!acc[store]) acc[store] = [];
     acc[store].push(item);
     return acc;
-  }, {} as Record<string, typeof items>);
+  }, {} as Record<string, typeof cartItems>);
 
-  if (items.length === 0) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-6">
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-32 w-full" />)}
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -68,7 +67,7 @@ export default function Cart() {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Header />
       <main className="container py-6">
-        <h1 className="text-2xl font-bold mb-6">Shopping Cart ({items.length} items)</h1>
+        <h1 className="text-2xl font-bold mb-6">Shopping Cart ({cartItems.length} items)</h1>
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Items */}
@@ -82,30 +81,50 @@ export default function Cart() {
                   </Badge>
                 </div>
                 <div className="space-y-4">
-                  {storeItems.map(({ product, quantity }) => (
-                    <div key={product.id} className="flex gap-4">
-                      <img src={product.image} alt={product.name} className="h-20 w-20 rounded-lg object-cover" />
-                      <div className="flex-1 min-w-0">
-                        <Link to={`/product/${product.id}`} className="text-sm font-medium hover:text-primary line-clamp-1">{product.name}</Link>
-                        <p className="text-xs text-muted-foreground">{product.category}</p>
-                        <p className="text-sm font-bold text-primary mt-1">{formatNaira(product.price)}</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="flex items-center border rounded-md">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(product.id, -1)}>
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="w-8 text-center text-sm">{quantity}</span>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(product.id, 1)}>
-                            <Plus className="h-3 w-3" />
+                  {storeItems.map((item) => {
+                    const product = item.product;
+                    if (!product) return null;
+                    return (
+                      <div key={item.id} className="flex gap-4">
+                        <img
+                          src={product.images[0] ?? ""}
+                          alt={product.name}
+                          className="h-20 w-20 rounded-lg object-cover"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <Link to={`/product/${product.id}`} className="text-sm font-medium hover:text-primary line-clamp-1">
+                            {product.name}
+                          </Link>
+                          <p className="text-xs text-muted-foreground">{product.category}</p>
+                          <p className="text-sm font-bold text-primary mt-1">{formatNaira(product.price)}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="flex items-center border rounded-md">
+                            <Button
+                              variant="ghost" size="icon" className="h-7 w-7"
+                              onClick={() => updateQty.mutate({ cartItemId: item.id, quantity: item.quantity - 1 })}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-8 text-center text-sm">{item.quantity}</span>
+                            <Button
+                              variant="ghost" size="icon" className="h-7 w-7"
+                              onClick={() => updateQty.mutate({ cartItemId: item.id, quantity: item.quantity + 1 })}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="text-destructive hover:text-destructive h-7 px-2"
+                            onClick={() => removeItem.mutate(item.id)}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" /> Remove
                           </Button>
                         </div>
-                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive h-7 px-2" onClick={() => remove(product.id)}>
-                          <Trash2 className="h-3 w-3 mr-1" /> Remove
-                        </Button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -122,7 +141,10 @@ export default function Cart() {
                 onChange={(e) => setDiscountCode(e.target.value)}
                 className="h-9"
               />
-              <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={() => { if (discountCode) setDiscountApplied(true); }}>
+              <Button
+                variant="outline" size="sm" className="h-9 shrink-0"
+                onClick={() => { if (discountCode) setDiscountApplied(true); }}
+              >
                 <Tag className="h-3 w-3 mr-1" /> Apply
               </Button>
             </div>

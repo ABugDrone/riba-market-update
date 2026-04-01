@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { formatNaira } from "@/data/mock";
-import { mockOrders, sellerProducts } from "@/data/mockExtended";
+import { uploadProductImage, createProduct } from "@/lib/productService";
+import { useSellerAnalytics, useMonthlyRevenue } from "@/hooks/useAnalytics";
+import { useSellerOrders } from "@/hooks/useOrders";
+import { useSellerProducts } from "@/hooks/useProducts";
 import {
   BarChart3, Package, ShoppingCart, Users, DollarSign,
   Plus, Search, Home, Settings, Menu,
@@ -30,25 +33,10 @@ import { useToast } from "@/hooks/use-toast";
 import { AnalyticsDropdown } from "@/components/seller/AnalyticsDropdown";
 import { AnalyticsModal } from "@/components/seller/AnalyticsModal";
 import { InteractiveRevenueChart } from "@/components/seller/InteractiveRevenueChart";
-import { ProAnalyticsLock } from "@/components/seller/ProAnalyticsLock";
+import { UserProfileDropdown } from "@/components/UserProfileDropdown";
 import { useAuth } from "@/contexts/AuthContext";
 
-const revenueData = [
-  { month: "Jul", revenue: 120000 },
-  { month: "Aug", revenue: 180000 },
-  { month: "Sep", revenue: 250000 },
-  { month: "Oct", revenue: 320000 },
-  { month: "Nov", revenue: 280000 },
-  { month: "Dec", revenue: 450000 },
-  { month: "Jan", revenue: 380000 },
-];
-
-const stats = [
-  { label: "Total Sales", value: "₦2.4M", icon: DollarSign, change: "+12%" },
-  { label: "Active Products", value: "24", icon: Package, change: "+3" },
-  { label: "Pending Orders", value: "8", icon: ShoppingCart, change: "-2" },
-  { label: "Customers", value: "156", icon: Users, change: "+18" },
-];
+// Stats and revenue data are loaded dynamically from Supabase (see useSellerAnalytics / useMonthlyRevenue hooks)
 
 const statusColors: Record<string, string> = {
   pending: "status-pending",
@@ -157,15 +145,31 @@ function SideNav({ activeTab, setActiveTab }: { activeTab: string; setActiveTab:
 }
 
 export default function SellerDashboard() {
-  const { state } = useAuth();
+  const { state, refreshProfile } = useAuth();
+  const profileId = state.currentUser?.id;
+
+  // Refresh profile on mount to pick up any DB changes (e.g. is_pro update)
+  useEffect(() => { refreshProfile(); }, []);
   const [activeTab, setActiveTab] = useState("overview");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selectedCatalogueId, setSelectedCatalogueId] = useState<string>("");
   const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
   const [analyticsReportType, setAnalyticsReportType] = useState("sales");
   const [analyticsTimeframe, setAnalyticsTimeframe] = useState("monthly");
-  const [hideStatsCounts, setHideStatsCounts] = useState(false);
   const { toast } = useToast();
+
+  // Real data
+  const { data: analytics } = useSellerAnalytics(profileId);
+  const { data: revenueData = [] } = useMonthlyRevenue(profileId);
+  const { data: sellerOrders = [] } = useSellerOrders(profileId);
+  const { data: dbProducts = [] } = useSellerProducts(profileId);
+
+  const stats = [
+    { label: "Total Sales", value: analytics ? formatNaira(analytics.totalRevenue) : "₦0", icon: DollarSign, change: "" },
+    { label: "Active Products", value: String(analytics?.activeProducts ?? dbProducts.filter(p => p.status === "published").length), icon: Package, change: "" },
+    { label: "Pending Orders", value: String(analytics?.pendingOrders ?? 0), icon: ShoppingCart, change: "" },
+    { label: "Customers", value: String(analytics?.totalCustomers ?? 0), icon: Users, change: "" },
+  ];
 
   // Product filter state
   const [productSearch, setProductSearch] = useState("");
@@ -272,34 +276,29 @@ export default function SellerDashboard() {
 
   // Filter & sort orders
   const filteredOrders = useMemo(() => {
-    let items = [...mockOrders];
+    let items = [...sellerOrders];
 
-    // Search by order number or date
     if (orderSearch) {
       const q = orderSearch.toLowerCase();
-      items = items.filter((order) => 
-        order.orderNumber.toLowerCase().includes(q) || 
-        order.date.includes(q)
+      items = items.filter((order) =>
+        order.order_number.toLowerCase().includes(q) ||
+        order.created_at.includes(q)
       );
     }
 
-    // Filter by status
     if (orderStatusFilter !== "all") {
       items = items.filter((order) => order.status === orderStatusFilter);
     }
 
-    // Filter by payment method
     if (orderPaymentFilter !== "all") {
-      items = items.filter((order) => 
-        order.paymentMethod.toLowerCase() === orderPaymentFilter.toLowerCase()
+      items = items.filter((order) =>
+        order.payment_method.toLowerCase() === orderPaymentFilter.toLowerCase()
       );
     }
 
-    // Sort by date (newest first)
-    items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
+    items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return items;
-  }, [orderSearch, orderStatusFilter, orderPaymentFilter]);
+  }, [sellerOrders, orderSearch, orderStatusFilter, orderPaymentFilter]);
 
   const hasActiveOrderFilters = orderSearch !== "" || orderStatusFilter !== "all" || orderPaymentFilter !== "all";
 
@@ -309,11 +308,10 @@ export default function SellerDashboard() {
     setOrderPaymentFilter("all");
   };
 
-  // Get unique payment methods from orders
   const uniquePaymentMethods = useMemo(() => {
-    const methods = new Set(mockOrders.map((order) => order.paymentMethod));
+    const methods = new Set(sellerOrders.map((o) => o.payment_method));
     return Array.from(methods).sort();
-  }, []);
+  }, [sellerOrders]);
 
   const resetAddProductForm = () => {
     setNewProductCatalogue("");
@@ -329,8 +327,7 @@ export default function SellerDashboard() {
   const handleAddProduct = async () => {
     // Use the selected catalogue or default to the first one
     const selectedCatalogue = newProductCatalogue || sortedCatalogues[0]?.id;
-    
-    // Validation
+
     if (!selectedCatalogue) {
       toast({ title: "Error", description: "Please select a catalogue", variant: "destructive" });
       return;
@@ -349,43 +346,66 @@ export default function SellerDashboard() {
     }
 
     setIsSubmittingProduct(true);
-    
+
     try {
+      // Upload images to Supabase Storage
+      const tempId = `temp-${Date.now()}`;
+      const uploadedUrls: string[] = [];
+
+      for (let i = 0; i < newProductImages.length; i++) {
+        const img = newProductImages[i];
+        if (img.file) {
+          const { url, error } = await uploadProductImage(tempId, img.file, i);
+          if (url) uploadedUrls.push(url);
+          else if (img.dataUrl) uploadedUrls.push(img.dataUrl); // fallback to base64
+        } else if (img.dataUrl) {
+          uploadedUrls.push(img.dataUrl);
+        }
+      }
+
+      // Find the store_id for the selected catalogue
+      // selectedCatalogue is a store ID from seller_stores
+      const { product, error } = await createProduct({
+        store_id: selectedCatalogue,
+        name: newProductName,
+        description: newProductDescription || null,
+        price: parseFloat(newProductPrice),
+        category: newProductCategory,
+        status: "draft",
+        inventory_count: parseInt(newProductInventory) || 0,
+        images: uploadedUrls,
+        video_embed: newProductVideo || null,
+      });
+
+      if (error) throw new Error(error);
+
+      // Also save to localStorage for backward compat with CatalogueManager
       const mainImage = newProductImages.find((img) => img.isMain);
-      const newProduct: CatalogueItem = {
-        id: `product-${Date.now()}`,
+      const newCatalogueItem: CatalogueItem = {
+        id: product?.id ?? `product-${Date.now()}`,
         name: newProductName,
         category: newProductCategory,
         price: parseFloat(newProductPrice),
         description: newProductDescription,
-        image: mainImage?.dataUrl || newProductImages[0].dataUrl,
-        images: newProductImages.map((img) => img.dataUrl),
+        image: mainImage?.dataUrl || uploadedUrls[0] || newProductImages[0]?.dataUrl,
+        images: uploadedUrls.length > 0 ? uploadedUrls : newProductImages.map((img) => img.dataUrl),
         video: newProductVideo || undefined,
         status: "draft",
         createdAt: new Date().toISOString(),
       };
 
-      // Load existing products for this catalogue
       const key = `riba_catalogue_${selectedCatalogue}`;
       const existing = localStorage.getItem(key);
       const products: CatalogueItem[] = existing ? JSON.parse(existing) : [];
-      products.push(newProduct);
+      products.push(newCatalogueItem);
       localStorage.setItem(key, JSON.stringify(products));
 
-      toast({
-        title: "Success!",
-        description: `${newProductName} has been added to your catalogue.`,
-      });
-
+      toast({ title: "Success!", description: `${newProductName} has been added to your catalogue.` });
       resetAddProductForm();
       setActiveTab("products-manage");
     } catch (error) {
       console.error("Error adding product:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add product. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to add product. Please try again.", variant: "destructive" });
     } finally {
       setIsSubmittingProduct(false);
     }
@@ -423,22 +443,11 @@ export default function SellerDashboard() {
                     setAnalyticsTimeframe(timeframe || "monthly");
                     setAnalyticsModalOpen(true);
                   }}
-                  isPro={state.currentUser?.isPro || false}
                 />
-                {state.currentUser?.isPro && (
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => setHideStatsCounts(!hideStatsCounts)}
-                    title={hideStatsCounts ? "Show count" : "Hide count"}
-                  >
-                    {hideStatsCounts ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                )}
               </>
             )}
             <ThemeToggle />
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold">T</div>
+            <UserProfileDropdown size="sm" />
           </div>
         </header>
 
@@ -455,7 +464,7 @@ export default function SellerDashboard() {
                         <span className="text-xs text-primary font-medium">{stat.change}</span>
                       </div>
                       <p className="text-2xl font-bold">
-                        {state.currentUser?.isPro && hideStatsCounts ? "••••" : stat.value}
+                        {stat.value}
                       </p>
                       <p className="text-xs text-muted-foreground">{stat.label}</p>
                     </CardContent>
@@ -463,11 +472,10 @@ export default function SellerDashboard() {
                 ))}
               </div>
 
-              {/* Revenue Chart - Visible to all users */}
-              {state.currentUser?.isPro && <InteractiveRevenueChart />}
+              {/* Revenue Chart */}
+              <InteractiveRevenueChart />
 
-              {/* Detailed Reports - PRO only */}
-              {state.currentUser?.isPro ? (
+              {/* Detailed Reports */}
               <div className="grid lg:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
@@ -476,11 +484,11 @@ export default function SellerDashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {mockOrders.slice(0, 3).map((order) => (
+                      {sellerOrders.slice(0, 3).map((order) => (
                         <div key={order.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                           <div>
-                            <p className="text-sm font-medium">{order.orderNumber}</p>
-                            <p className="text-xs text-muted-foreground">{order.date}</p>
+                            <p className="text-sm font-medium">{order.order_number}</p>
+                            <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</p>
                           </div>
                           <div className="text-right">
                             <p className="text-sm font-medium">{formatNaira(order.total)}</p>
@@ -498,23 +506,23 @@ export default function SellerDashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {sellerProducts.slice(0, 3).map((p) => (
+                      {dbProducts.slice(0, 3).map((p) => (
                         <div key={p.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                          <img src={p.image} alt={p.name} className="h-10 w-10 rounded-lg object-cover" />
+                          {p.images[0]
+                            ? <img src={p.images[0]} alt={p.name} className="h-10 w-10 rounded-lg object-cover" />
+                            : <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center"><Package className="h-4 w-4 text-muted-foreground" /></div>
+                          }
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{p.name}</p>
-                            <p className="text-xs text-muted-foreground">{p.sales} sales</p>
+                            <p className="text-xs text-muted-foreground">{p.sales_count} sales</p>
                           </div>
-                          <span className="text-sm font-medium text-primary">{formatNaira(p.price)}</span>
+                          <span className="text-sm font-medium text-primary">{formatNaira(p.price ?? 0)}</span>
                         </div>
                       ))}
                     </div>
                   </CardContent>
                 </Card>
               </div>
-              ) : (
-                <ProAnalyticsLock />
-              )}
             </div>
           )}
 
@@ -594,11 +602,11 @@ export default function SellerDashboard() {
                     <TableBody>
                       {filteredOrders.map((order) => (
                         <TableRow key={order.id}>
-                          <TableCell className="font-medium">{order.orderNumber}</TableCell>
-                          <TableCell>{order.date}</TableCell>
+                          <TableCell className="font-medium">{order.order_number}</TableCell>
+                          <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
                           <TableCell>{formatNaira(order.total)}</TableCell>
                           <TableCell><Badge variant="secondary" className={`text-xs ${statusColors[order.status]}`}>{order.status}</Badge></TableCell>
-                          <TableCell className="text-muted-foreground">{order.paymentMethod}</TableCell>
+                          <TableCell className="text-muted-foreground">{order.payment_method}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -997,7 +1005,7 @@ export default function SellerDashboard() {
               <CardContent>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {["Electronics", "Fashion", "Food", "Services", "Home & Garden", "Health & Beauty"].map((cat) => {
-                    const count = sellerProducts.filter((p) => p.category === cat).length;
+                    const count = dbProducts.filter((p) => p.category === cat).length;
                     return (
                       <Card key={cat} className="hover:border-primary/40 transition-colors cursor-pointer">
                         <CardContent className="p-4">

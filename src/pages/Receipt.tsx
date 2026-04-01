@@ -26,12 +26,12 @@ interface PaymentDetailsData {
   }>;
   address: {
     label: string;
-    fullAddress: string;
+    full_address: string;
     city: string;
     state: string;
     phone: string;
   };
-  paymentMethod: "card" | "bank" | "cod";
+  paymentMethod: "online" | "cash_on_delivery";
   subtotal: number;
   delivery: number;
   total: number;
@@ -41,13 +41,10 @@ interface PaymentDetailsData {
     email?: string;
     phone?: string;
     userType?: string;
-    address?: string;
-    city?: string;
-    state?: string;
-    bio?: string;
   };
   timestamp: string;
   orderId: string;
+  orderNumber?: string;
 }
 
 export default function Receipt() {
@@ -105,16 +102,14 @@ export default function Receipt() {
   };
 
   const paymentMethodLabel = {
-    cod: "Cash on Delivery",
-    card: "Card Payment",
-    bank: "Bank Transfer",
-  }[paymentDetails.paymentMethod];
+    cash_on_delivery: "Cash on Delivery",
+    online: "Online Payment",
+  }[paymentDetails.paymentMethod] ?? paymentDetails.paymentMethod;
 
   const paymentMethodIcon = {
-    cod: "🚚",
-    card: "💳",
-    bank: "🏦",
-  }[paymentDetails.paymentMethod];
+    cash_on_delivery: "🚚",
+    online: "💳",
+  }[paymentDetails.paymentMethod] ?? "💳";
 
   const orderDate = new Date(paymentDetails.timestamp).toLocaleDateString("en-US", {
     year: "numeric",
@@ -257,7 +252,7 @@ export default function Receipt() {
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Address</p>
                   <p className="text-sm">
-                    {paymentDetails.address.fullAddress}, {paymentDetails.address.city}, {paymentDetails.address.state}
+                    {paymentDetails.address.full_address}, {paymentDetails.address.city}, {paymentDetails.address.state}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
@@ -287,11 +282,11 @@ export default function Receipt() {
                     </div>
                   </div>
                   <Badge className="bg-primary/20 text-primary border-0">
-                    {paymentDetails.paymentMethod === "cod" ? "Pending" : "Processing"}
+                    {paymentDetails.paymentMethod === "cash_on_delivery" ? "Pending" : "Processing"}
                   </Badge>
                 </div>
 
-                {paymentDetails.paymentMethod === "cod" && (
+                {paymentDetails.paymentMethod === "cash_on_delivery" && (
                   <div className="flex gap-2 p-3 rounded-lg bg-primary/5 border border-primary/30 text-xs">
                     <span className="text-lg">ℹ️</span>
                     <p>
@@ -493,10 +488,10 @@ export default function Receipt() {
               <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">1</div>
               <div>
                 <p className="font-medium text-sm">
-                  {paymentDetails.paymentMethod === "cod" ? "Wait for Delivery" : "Complete Payment"}
+                  {paymentDetails.paymentMethod === "cash_on_delivery" ? "Wait for Delivery" : "Complete Payment"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {paymentDetails.paymentMethod === "cod" 
+                  {paymentDetails.paymentMethod === "cash_on_delivery" 
                     ? "Your order will be delivered within 2-5 business days." 
                     : "Follow the payment instructions to complete your transaction."}
                 </p>

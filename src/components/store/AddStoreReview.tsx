@@ -10,11 +10,16 @@ import { Star, Send, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { AnonymousStoreReviewForm, type AnonymousStoreReviewData } from "./AnonymousStoreReviewForm";
-import type { StoreReview } from "@/data/storeReviewsData";
 
 interface AddStoreReviewProps {
   storeName: string;
-  onReviewAdded: (review: StoreReview | AnonymousStoreReviewData) => void;
+  onReviewAdded: (review: {
+    author: string;
+    avatar?: string;
+    rating: number;
+    comment: string;
+    isAnonymous?: boolean;
+  }) => void;
 }
 
 export function AddStoreReview({ storeName, onReviewAdded }: AddStoreReviewProps) {
@@ -46,29 +51,14 @@ export function AddStoreReview({ storeName, onReviewAdded }: AddStoreReviewProps
     setIsSubmitting(true);
 
     try {
-      const newReview: StoreReview = {
-        id: `sr-${Date.now()}`,
-        storeName,
-        userId: authState.currentUser?.id || "anonymous",
+      const newReview = {
         author: authState.currentUser?.name || "Anonymous",
         avatar: authState.currentUser?.avatar || `https://i.pravatar.cc/40?img=${Math.floor(Math.random() * 50)}`,
         rating,
-        date: new Date().toISOString().split("T")[0],
         comment: comment.trim(),
-        helpful: 0,
+        isAnonymous: false,
       };
 
-      // Get existing reviews from localStorage
-      const existingReviews = localStorage.getItem(`riba_store_reviews_${storeName}`);
-      const reviews = existingReviews ? JSON.parse(existingReviews) : [];
-
-      // Add new review
-      reviews.unshift(newReview);
-
-      // Save to localStorage
-      localStorage.setItem(`riba_store_reviews_${storeName}`, JSON.stringify(reviews));
-
-      // Call callback
       onReviewAdded(newReview);
 
       // Reset form
@@ -103,7 +93,13 @@ export function AddStoreReview({ storeName, onReviewAdded }: AddStoreReviewProps
               <AnonymousStoreReviewForm 
                 storeName={storeName} 
                 onReviewSubmit={(review) => {
-                  onReviewAdded(review);
+                  onReviewAdded({
+                    author: review.author ?? "Anonymous",
+                    avatar: review.avatar,
+                    rating: review.rating,
+                    comment: review.comment,
+                    isAnonymous: true,
+                  });
                   setOpen(false);
                 }}
                 onClose={() => setOpen(false)}

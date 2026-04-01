@@ -184,7 +184,7 @@ export default function StoreProfile() {
               <StoreProfileAbout store={store} />
             </TabsContent>
             <TabsContent value="reviews" className="mt-6 max-w-2xl">
-              <StoreProfileReviews storeName={store.name} rating={store.rating} reviewCount={store.reviewCount} />
+              <StoreProfileReviews storeName={store.name} storeId={catalogues[0]?.id} rating={store.rating} reviewCount={store.reviewCount} />
             </TabsContent>
             <TabsContent value="policies" className="mt-6 max-w-2xl">
               <StoreProfilePolicies />
